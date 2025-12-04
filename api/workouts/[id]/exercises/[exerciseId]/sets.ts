@@ -7,7 +7,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   setCorsHeaders(res);
 
   const supabase = getSupabaseClient();
-  const { workoutId, exerciseId } = req.query;
+  const { id: workoutId, exerciseId } = req.query;
 
   if (!workoutId || typeof workoutId !== 'string' || !exerciseId || typeof exerciseId !== 'string') {
     return res.status(400).json({ error: 'Workout ID and Exercise ID are required' });

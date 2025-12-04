@@ -7,7 +7,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   setCorsHeaders(res);
 
   const supabase = getSupabaseClient();
-  const { workoutId } = req.query;
+  const { id: workoutId } = req.query;
   const { athleteId } = req.query;
 
   if (!workoutId || typeof workoutId !== 'string') {
