@@ -1,6 +1,6 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
-import { getSupabaseClient } from '../../../_helpers/supabase';
-import { handleCors, setCorsHeaders } from '../../../_helpers/cors';
+import { getSupabaseClient } from '../../_helpers/supabase';
+import { handleCors, setCorsHeaders } from '../../_helpers/cors';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (handleCors(req, res)) return;
@@ -8,6 +8,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const supabase = getSupabaseClient();
   const { id: teamId } = req.query;
+  const urlParts = req.url?.split('/') || [];
+  const athleteIdIndex = urlParts.indexOf('athletes');
+  const athleteId = athleteIdIndex >= 0 && athleteIdIndex < urlParts.length - 1
+    ? urlParts[athleteIdIndex + 1]
+    : null;
 
   if (!teamId || typeof teamId !== 'string') {
     return res.status(400).json({ error: 'Team ID is required' });
@@ -15,10 +20,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     if (req.method === 'POST') {
-      // Add athlete to team
-      const { athleteId } = req.body;
+      // POST /api/teams/:id/athletes - Add athlete to team
+      const { athleteId: bodyAthleteId } = req.body;
+      const targetAthleteId = bodyAthleteId || athleteId;
 
-      if (!athleteId) {
+      if (!targetAthleteId) {
         return res.status(400).json({ error: 'Athlete ID is required' });
       }
 
@@ -37,7 +43,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const { data: athlete, error: athleteError } = await supabase
         .from('athletes')
         .select('id')
-        .eq('id', athleteId)
+        .eq('id', targetAthleteId)
         .single();
 
       if (athleteError || !athlete) {
@@ -49,7 +55,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .from('team_athletes')
         .select('*')
         .eq('team_id', teamId)
-        .eq('athlete_id', athleteId)
+        .eq('athlete_id', targetAthleteId)
         .single();
 
       if (existing) {
@@ -61,18 +67,33 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .from('team_athletes')
         .insert({
           team_id: teamId,
-          athlete_id: athleteId,
+          athlete_id: targetAthleteId,
         });
 
       if (error) throw error;
 
-      res.status(204).send();
+      res.status(204).end();
+    } else if (req.method === 'DELETE' && athleteId) {
+      // DELETE /api/teams/:id/athletes/:athleteId - Remove athlete from team
+      if (!athleteId || typeof athleteId !== 'string') {
+        return res.status(400).json({ error: 'Athlete ID is required' });
+      }
+
+      const { error } = await supabase
+        .from('team_athletes')
+        .delete()
+        .eq('team_id', teamId)
+        .eq('athlete_id', athleteId);
+
+      if (error) throw error;
+
+      res.status(204).end();
     } else {
-      res.setHeader('Allow', ['POST']);
+      res.setHeader('Allow', ['POST', 'DELETE']);
       res.status(405).json({ error: `Method ${req.method} not allowed` });
     }
   } catch (error: any) {
-    console.error('Error adding athlete to team:', error);
-    res.status(500).json({ error: error.message || 'Failed to add athlete to team' });
+    console.error('Error in team athletes API:', error);
+    res.status(500).json({ error: error.message || 'Failed to process request' });
   }
 }
