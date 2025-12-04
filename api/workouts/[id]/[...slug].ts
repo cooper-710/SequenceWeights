@@ -3,6 +3,8 @@ import { getSupabaseClient } from '../../_helpers/supabase.js';
 import { handleCors, setCorsHeaders } from '../../_helpers/cors.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  console.log(`[Workout Nested Route] ${req.method} ${req.url}`, { query: req.query, method: req.method });
+  
   if (handleCors(req, res)) return;
   setCorsHeaders(res);
 
@@ -12,9 +14,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Parse slug from Vercel's catch-all route
   // slug is an array like ['completion'] or ['exercises', 'exerciseId', 'sets']
   const slugArray = Array.isArray(slug) ? slug : slug ? [slug] : [];
-  
-  // Debug logging
-  console.log(`[Workout Nested Route] Method: ${req.method}, WorkoutId: ${workoutId}, Slug:`, slugArray, 'URL:', req.url);
   
   // Determine which route we're handling based on path segments
   const isCompletion = slugArray[0] === 'completion';

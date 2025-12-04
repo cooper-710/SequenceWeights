@@ -4,6 +4,8 @@ import { handleCors, setCorsHeaders } from '../_helpers/cors.js';
 import { getWorkoutWithBlocks } from './_helpers.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  console.log(`[Workouts ID] ${req.method} ${req.url}`, { query: req.query, method: req.method });
+  
   if (handleCors(req, res)) return;
   setCorsHeaders(res);
 

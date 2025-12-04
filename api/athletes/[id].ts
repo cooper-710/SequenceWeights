@@ -3,6 +3,8 @@ import { getSupabaseClient } from '../_helpers/supabase.js';
 import { handleCors, setCorsHeaders } from '../_helpers/cors.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  console.log(`[Athletes ID] ${req.method} ${req.url}`, { query: req.query, method: req.method });
+  
   if (handleCors(req, res)) return;
   setCorsHeaders(res);
 
