@@ -211,7 +211,7 @@ export const teamsApi = {
       body: JSON.stringify({ athleteId }),
     }),
   removeAthlete: (teamId: string, athleteId: string) =>
-    apiRequest<void>(`/teams/${teamId}/athletes/${athleteId}`, {
+    apiRequest<void>(`/teams/${teamId}/athletes?athleteId=${athleteId}`, {
       method: 'DELETE',
     }),
 };

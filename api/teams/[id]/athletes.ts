@@ -72,9 +72,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       res.status(204).end();
+    } else if (req.method === 'DELETE') {
+      // DELETE /api/teams/:id/athletes?athleteId=xxx - Remove athlete from team
+      const athleteId = req.query.athleteId as string || req.body?.athleteId;
+      
+      if (!athleteId || typeof athleteId !== 'string') {
+        return res.status(400).json({ error: 'Athlete ID is required (provide as query param ?athleteId=xxx or in request body)' });
+      }
+
+      console.log(`DELETE: Removing athlete ${athleteId} from team ${teamId}`);
+
+      const { error } = await supabase
+        .from('team_athletes')
+        .delete()
+        .eq('team_id', teamId)
+        .eq('athlete_id', athleteId);
+
+      if (error) {
+        console.error('Error removing athlete from team:', error);
+        throw error;
+      }
+
+      res.status(204).end();
     } else {
-      res.setHeader('Allow', ['POST']);
-      res.status(405).json({ error: `Method ${req.method} not allowed. Use POST to add athlete or DELETE /api/teams/:id/athletes/:athleteId to remove.` });
+      res.setHeader('Allow', ['POST', 'DELETE']);
+      res.status(405).json({ error: `Method ${req.method} not allowed. Expected POST or DELETE.` });
     }
   } catch (error: any) {
     console.error('Error in team athletes API:', error);

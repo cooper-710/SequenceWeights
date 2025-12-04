@@ -60,7 +60,14 @@ export function AthleteManager({ onSelectAthlete }: AthleteManagerProps) {
   const getLoginLink = (athlete: Athlete) => {
     const token = athlete.loginToken || (athlete as any).login_token;
     if (!token) return '';
-    return `${window.location.origin}/?token=${token}`;
+    
+    // In production, use the production URL from environment variable
+    // In development, use current origin
+    const baseUrl = import.meta.env.PROD 
+      ? (import.meta.env.VITE_APP_URL || 'https://sequence-weights-git-main-cooper-710s-projects.vercel.app')
+      : window.location.origin;
+    
+    return `${baseUrl}/?token=${token}`;
   };
 
   const handleCopyLink = (link: string, athleteId: string, e?: React.MouseEvent) => {
