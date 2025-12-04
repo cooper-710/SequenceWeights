@@ -7,18 +7,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   setCorsHeaders(res);
 
   const supabase = getSupabaseClient();
-  const { id: workoutId, slug } = req.query;
+  const { id: workoutId } = req.query;
   
-  // slug is an array of path segments: ['completion'] or ['exercises', 'exerciseId', 'sets']
-  const slugArray = Array.isArray(slug) ? slug : slug ? [slug] : [];
+  // Parse URL to get path segments
+  const urlPath = req.url || '';
+  const pathParts = urlPath.split('/').filter(Boolean);
   
-  // Determine which route we're handling based on slug
-  const isCompletion = slugArray[0] === 'completion';
-  const isSets = slugArray.includes('sets');
-  const isNotes = slugArray.includes('notes');
-  const exerciseIdIndex = slugArray.indexOf('exercises');
-  const exerciseId = exerciseIdIndex >= 0 && exerciseIdIndex < slugArray.length - 1
-    ? slugArray[exerciseIdIndex + 1]
+  // Find workout ID index and get segments after it
+  const workoutIndex = pathParts.indexOf(workoutId as string);
+  const routeSegments = workoutIndex >= 0 ? pathParts.slice(workoutIndex + 1) : [];
+  
+  // Determine which route we're handling based on path segments
+  const isCompletion = routeSegments[0] === 'completion';
+  const isSets = routeSegments.includes('sets');
+  const isNotes = routeSegments.includes('notes');
+  const exerciseIdIndex = routeSegments.indexOf('exercises');
+  const exerciseId = exerciseIdIndex >= 0 && exerciseIdIndex < routeSegments.length - 1
+    ? routeSegments[exerciseIdIndex + 1]
     : null;
 
   if (!workoutId || typeof workoutId !== 'string') {
