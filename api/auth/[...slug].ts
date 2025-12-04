@@ -7,9 +7,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   setCorsHeaders(res);
 
   const supabase = getSupabaseClient();
+  const { slug } = req.query;
+  
+  // slug is an array: ['login'] or ['validate', 'token-value']
+  const slugArray = Array.isArray(slug) ? slug : slug ? [slug] : [];
+  const route = slugArray[0] || '';
 
   try {
-    if (req.method === 'POST' && req.url?.includes('/login')) {
+    if (route === 'login' && req.method === 'POST') {
       // POST /api/auth/login
       const { token } = req.body;
 
@@ -35,15 +40,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           role: 'user' as const,
         },
       });
-    } else if (req.method === 'GET') {
+    } else if (route === 'validate' && req.method === 'GET') {
       // GET /api/auth/validate/:token
-      const urlParts = req.url?.split('/') || [];
-      const tokenIndex = urlParts.indexOf('validate');
-      const token = tokenIndex >= 0 && tokenIndex < urlParts.length - 1 
-        ? urlParts[tokenIndex + 1] 
-        : null;
+      const token = slugArray[1];
 
-      if (!token) {
+      if (!token || typeof token !== 'string') {
         return res.status(400).json({ error: 'Token is required' });
       }
 
@@ -66,8 +67,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         },
       });
     } else {
-      res.setHeader('Allow', ['GET', 'POST']);
-      res.status(405).json({ error: `Method ${req.method} not allowed` });
+      res.status(404).json({ error: 'Route not found' });
     }
   } catch (error: any) {
     console.error('Error in auth API:', error);
