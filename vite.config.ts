@@ -58,11 +58,8 @@
     server: {
       port: 3000,
       open: true,
-      proxy: {
-        '/api': {
-          target: 'http://localhost:3001',
-          changeOrigin: true,
-        },
-      },
+      // Note: In production, API routes are served from the same origin (Vercel)
+      // For local development, use Vercel CLI: `vercel dev`
+      // Or set VITE_API_URL environment variable to point to your API
     },
   });

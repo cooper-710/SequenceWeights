@@ -1,4 +1,15 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+// In production, use relative URLs (same origin as frontend)
+// In development, use VITE_API_URL or default to localhost
+const getApiBaseUrl = () => {
+  if (import.meta.env.PROD) {
+    // Production: use same origin (Vercel serves both frontend and API)
+    return '/api';
+  }
+  // Development: use environment variable or default
+  return import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+};
+
+const API_BASE_URL = getApiBaseUrl();
 
 export interface Exercise {
   id: string;
