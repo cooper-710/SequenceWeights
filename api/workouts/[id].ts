@@ -10,6 +10,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const supabase = getSupabaseClient();
   const { id: workoutId } = req.query;
 
+  // Debug logging
+  console.log(`[Workout ID Route] Method: ${req.method}, WorkoutId: ${workoutId}, URL:`, req.url);
+
   if (!workoutId || typeof workoutId !== 'string') {
     return res.status(400).json({ error: 'Workout ID is required' });
   }

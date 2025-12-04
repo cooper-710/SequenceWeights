@@ -13,6 +13,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // slug is an array like ['completion'] or ['exercises', 'exerciseId', 'sets']
   const slugArray = Array.isArray(slug) ? slug : slug ? [slug] : [];
   
+  // Debug logging
+  console.log(`[Workout Nested Route] Method: ${req.method}, WorkoutId: ${workoutId}, Slug:`, slugArray, 'URL:', req.url);
+  
   // Determine which route we're handling based on path segments
   const isCompletion = slugArray[0] === 'completion';
   const isSets = slugArray.includes('sets');
@@ -24,6 +27,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   if (!workoutId || typeof workoutId !== 'string') {
     return res.status(400).json({ error: 'Workout ID is required' });
+  }
+  
+  // If no slug segments, this shouldn't match - return 404
+  if (slugArray.length === 0) {
+    return res.status(404).json({ error: 'Route not found - no path segments' });
   }
 
   try {
