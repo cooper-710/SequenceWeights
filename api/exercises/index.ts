@@ -36,16 +36,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(400).json({ error: 'Exercise name is required' });
       }
 
-      // Get max ID to generate new sequential ID
-      const { data: maxData } = await supabase
+      // Get all IDs and find the numeric maximum
+      // (We can't rely on TEXT ordering since "9" > "593" lexicographically)
+      const { data: allExercises } = await supabase
         .from('exercises')
-        .select('id')
-        .order('id', { ascending: false })
-        .limit(1);
+        .select('id');
 
       let newId = '1';
-      if (maxData && maxData.length > 0) {
-        const maxIdNum = parseInt(maxData[0].id, 10) || 0;
+      if (allExercises && allExercises.length > 0) {
+        // Parse all IDs as numbers and find the actual max
+        const maxIdNum = allExercises.reduce((max, ex) => {
+          const idNum = parseInt(ex.id, 10) || 0;
+          return idNum > max ? idNum : max;
+        }, 0);
         newId = (maxIdNum + 1).toString();
       }
 
