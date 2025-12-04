@@ -30,7 +30,7 @@ export default function App() {
         const parsedUser = JSON.parse(savedUser);
         // If user has token, validate it; otherwise use saved user (admin)
         if (parsedUser.token) {
-          fetch(`/api/auth/validate/${parsedUser.token}`)
+          fetch(`/api/auth/login?token=${parsedUser.token}`)
             .then(res => {
               if (res.ok) {
                 return res.json();
