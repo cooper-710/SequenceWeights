@@ -1,6 +1,6 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
-import { getSupabaseClient } from '../_helpers/supabase';
-import { handleCors, setCorsHeaders } from '../_helpers/cors';
+import { getSupabaseClient } from '../_helpers/supabase.js';
+import { handleCors, setCorsHeaders } from '../_helpers/cors.js';
 
 async function getWorkoutWithBlocks(supabase: any, workoutId: string) {
   const { data: workout, error: workoutError } = await supabase

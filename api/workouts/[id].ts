@@ -1,7 +1,7 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
-import { getSupabaseClient } from '../_helpers/supabase';
-import { handleCors, setCorsHeaders } from '../_helpers/cors';
-import { getWorkoutWithBlocks } from './_helpers';
+import { getSupabaseClient } from '../_helpers/supabase.js';
+import { handleCors, setCorsHeaders } from '../_helpers/cors.js';
+import { getWorkoutWithBlocks } from './_helpers.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (handleCors(req, res)) return;
