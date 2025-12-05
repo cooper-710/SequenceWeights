@@ -92,8 +92,11 @@ export function ExerciseDetail({ userId, onBack }: ExerciseDetailProps) {
               );
               
               if (savedSets && savedSets.length > 0) {
-                // Use saved sets, but ensure we have enough sets
-                const totalSets = foundExercise.sets;
+                // Calculate total sets: use max of template sets and highest saved set number
+                // This preserves sets that were added beyond the template count
+                const maxSavedSetNumber = Math.max(...savedSets.map((s: any) => s.set));
+                const totalSets = Math.max(foundExercise.sets, maxSavedSetNumber);
+                
                 const setsToShow = Array.from({ length: totalSets }, (_, i) => {
                   const saved = savedSets.find((s: any) => s.set === i + 1);
                   return saved || {
