@@ -150,7 +150,10 @@ export function ExerciseAutocomplete({
         top: `${dropdownPosition.top}px`,
         left: `${dropdownPosition.left}px`,
         width: `${dropdownPosition.width}px`,
-        pointerEvents: 'auto'
+        pointerEvents: 'auto',
+        overflow: 'visible',
+        maxHeight: 'none',
+        height: 'auto'
       }}
     >
       {loading ? (
