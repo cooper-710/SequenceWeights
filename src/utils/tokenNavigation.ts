@@ -22,11 +22,11 @@ export function addTokenToUrl(path: string, token: string | null): string {
 /**
  * Create a navigate function that preserves token
  */
-export function createTokenPreservingNavigate(navigate: (path: string) => void) {
-  return (path: string) => {
+export function createTokenPreservingNavigate(navigate: (path: string, options?: any) => void) {
+  return (path: string, options?: { state?: any }) => {
     const token = getTokenFromUrl();
     const pathWithToken = addTokenToUrl(path, token);
-    navigate(pathWithToken);
+    navigate(pathWithToken, options);
   };
 }
 

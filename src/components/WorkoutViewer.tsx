@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { createTokenPreservingNavigate } from '../utils/tokenNavigation';
+import { NavigationState } from '../utils/navigation';
 import { ChevronLeft, Heart, Activity, Dumbbell, ChevronRight, CheckCircle2, Circle, PlayCircle } from 'lucide-react';
 import sequenceLogo from 'figma:asset/5c2d0c8af8dfc8338b2c35795df688d7811f7b51.png';
 import { ImageWithFallback } from './figma/ImageWithFallback';
@@ -81,11 +82,26 @@ export function WorkoutViewer({ userId, onBack }: WorkoutViewerProps) {
     }
   }, [workoutId]);
 
+  // Check for workout passed via navigation state (prevents flash of stale data)
   useEffect(() => {
+    const locationState = location.state as NavigationState | null;
+    if (locationState?.workout) {
+      // Use the passed workout immediately (no flash!)
+      setWorkout(locationState.workout);
+      setLoading(false);
+      // Refresh in background to ensure it's up to date
+      setTimeout(() => {
+        loadWorkout();
+      }, 300);
+      // Clear the state so it doesn't persist on next navigation
+      window.history.replaceState({ ...locationState, workout: undefined }, '');
+      return;
+    }
+    
     if (workoutId) {
       loadWorkout();
     }
-  }, [workoutId, loadWorkout]);
+  }, [workoutId, loadWorkout, location.state]);
 
   // Check for completion status passed via navigation state (prevents flash of stale data)
   useEffect(() => {
@@ -339,7 +355,8 @@ export function WorkoutViewer({ userId, onBack }: WorkoutViewerProps) {
                         const url = token 
                           ? `/exercise/${workout.id}/${encodeURIComponent(exercise.exerciseName)}?token=${token}`
                           : `/exercise/${workout.id}/${encodeURIComponent(exercise.exerciseName)}`;
-                        navigate(url);
+                        // Pass workout data via state to prevent flash
+                        navigate(url, { state: { workout } });
                       }}
                       className={`
                         bg-[#1B1B1E] border ${getBlockBorderColor(blockIndex)}

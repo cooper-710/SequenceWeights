@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Calendar, Dumbbell, ChevronRight, Bed, Check } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { workoutsApi } from '../utils/api';
 import { createTokenPreservingNavigate } from '../utils/tokenNavigation';
+import { NavigationState, navigateWithWorkout } from '../utils/navigation';
 import sequenceLogo from 'figma:asset/5c2d0c8af8dfc8338b2c35795df688d7811f7b51.png';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 
@@ -22,6 +23,7 @@ interface ScheduledWorkout {
 export function UserDashboard({ user, onLogout }: UserDashboardProps) {
   const navigateBase = useNavigate();
   const navigate = createTokenPreservingNavigate(navigateBase);
+  const location = useLocation();
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [workouts, setWorkouts] = useState<ScheduledWorkout[]>([]);
   const [loading, setLoading] = useState(true);
@@ -45,6 +47,31 @@ export function UserDashboard({ user, onLogout }: UserDashboardProps) {
   useEffect(() => {
     loadWorkouts();
   }, [user.id]);
+
+  // Check for workouts passed via navigation state (prevents flash of stale data)
+  useEffect(() => {
+    const locationState = location.state as NavigationState | null;
+    if (locationState?.workouts && locationState?.workoutCompletionStatus) {
+      // Use the passed data immediately (no flash!)
+      const scheduledWorkouts: ScheduledWorkout[] = locationState.workouts.map(workout => ({
+        id: workout.id,
+        name: workout.name,
+        date: workout.date,
+        status: 'not-started' as const,
+        exerciseCount: workout.blocks.reduce((total, block) => total + block.exercises.length, 0),
+      }));
+      setWorkouts(scheduledWorkouts);
+      setWorkoutCompletionStatus(locationState.workoutCompletionStatus);
+      setLoading(false);
+      // Refresh in background to ensure it's up to date
+      setTimeout(() => {
+        loadWorkouts();
+      }, 300);
+      // Clear the state so it doesn't persist on next navigation
+      window.history.replaceState({ ...locationState, workouts: undefined, workoutCompletionStatus: undefined }, '');
+      return;
+    }
+  }, [location.state]);
 
   const loadWorkouts = async () => {
     try {
@@ -215,7 +242,9 @@ export function UserDashboard({ user, onLogout }: UserDashboardProps) {
 
           {todaysWorkout ? (
             <div
-              onClick={() => navigate(`/workout/${todaysWorkout.id}`)}
+              onClick={async () => {
+                await navigateWithWorkout(navigate, `/workout/${todaysWorkout.id}`, todaysWorkout.id, user.id);
+              }}
               className="bg-[#F56E0F]/30 border border-[#F56E0F] rounded-xl p-6 cursor-pointer hover:bg-[#F56E0F]/40 transition-all transform hover:scale-[1.02]"
             >
               <div className="flex items-start justify-between gap-4">
@@ -345,7 +374,9 @@ export function UserDashboard({ user, onLogout }: UserDashboardProps) {
             {sortedWorkouts.map((workout) => (
               <div
                 key={workout.id}
-                onClick={() => navigate(`/workout/${workout.id}`)}
+                onClick={async () => {
+                  await navigateWithWorkout(navigate, `/workout/${workout.id}`, workout.id, user.id);
+                }}
                 className="bg-zinc-900 border border-zinc-800 rounded-lg p-4 hover:border-zinc-700 transition-colors cursor-pointer"
               >
                 <div className="flex items-center justify-between">

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { createTokenPreservingNavigate, addTokenToUrl } from '../utils/tokenNavigation';
+import { NavigationState } from '../utils/navigation';
 import { ChevronLeft, Check, PlayCircle, XCircle, Plus } from 'lucide-react';
 import sequenceLogo from 'figma:asset/5c2d0c8af8dfc8338b2c35795df688d7811f7b51.png';
 import { ImageWithFallback } from './figma/ImageWithFallback';
@@ -31,6 +32,7 @@ export function ExerciseDetail({ userId, onBack }: ExerciseDetailProps) {
   const { workoutId, exerciseName } = useParams<{ workoutId: string; exerciseName: string }>();
   const navigateBase = useNavigate();
   const navigate = createTokenPreservingNavigate(navigateBase);
+  const location = useLocation();
   const decodedExerciseName = exerciseName ? decodeURIComponent(exerciseName) : '';
   
   // Get token for manual URL construction if needed
@@ -48,6 +50,16 @@ export function ExerciseDetail({ userId, onBack }: ExerciseDetailProps) {
   const [showCelebration, setShowCelebration] = useState(false);
   const [allExercisesCompleted, setAllExercisesCompleted] = useState(false);
 
+  // Check for workout passed via navigation state (prevents flash of stale data)
+  useEffect(() => {
+    const locationState = location.state as NavigationState | null;
+    if (locationState?.workout) {
+      // Use the passed workout immediately (no flash!)
+      setWorkout(locationState.workout);
+      // Still need to load exercise-specific data, but workout is already there
+    }
+  }, [location.state]);
+
   // Fetch workout and exercise data
   useEffect(() => {
     if (!workoutId || !decodedExerciseName) return;
@@ -56,8 +68,14 @@ export function ExerciseDetail({ userId, onBack }: ExerciseDetailProps) {
       try {
         setLoading(true);
         
-        // Fetch workout
-        const workoutData = await workoutsApi.getById(workoutId);
+        // Check if we already have workout from location state
+        const locationState = location.state as NavigationState | null;
+        let workoutData = locationState?.workout;
+        
+        // Fetch workout if we don't have it from state
+        if (!workoutData) {
+          workoutData = await workoutsApi.getById(workoutId);
+        }
         setWorkout(workoutData);
 
         // Find exercise in workout
@@ -356,7 +374,8 @@ export function ExerciseDetail({ userId, onBack }: ExerciseDetailProps) {
       // await saveNotes(); // Notes functionality disabled
       const prev = allExercises[currentIndex - 1];
       const url = addTokenToUrl(`/exercise/${workout.id}/${encodeURIComponent(prev.name)}`, token);
-      navigate(url);
+      // Pass workout data via state to prevent flash
+      navigate(url, { state: { workout } });
     }
   };
 
@@ -366,7 +385,8 @@ export function ExerciseDetail({ userId, onBack }: ExerciseDetailProps) {
       // await saveNotes(); // Notes functionality disabled
       const next = allExercises[currentIndex + 1];
       const url = addTokenToUrl(`/exercise/${workout.id}/${encodeURIComponent(next.name)}`, token);
-      navigate(url);
+      // Pass workout data via state to prevent flash
+      navigate(url, { state: { workout } });
     } else if (!hasNext && currentExerciseAllSetsCompleted) {
       // On last exercise and all sets completed
       await handleCompleteWorkout();
