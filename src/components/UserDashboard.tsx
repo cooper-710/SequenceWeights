@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Calendar, Dumbbell, LogOut, ChevronRight, Bed, Check } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { workoutsApi } from '../utils/api';
+import { createTokenPreservingNavigate } from '../utils/tokenNavigation';
 import sequenceLogo from 'figma:asset/5c2d0c8af8dfc8338b2c35795df688d7811f7b51.png';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 
@@ -19,7 +20,8 @@ interface ScheduledWorkout {
 }
 
 export function UserDashboard({ user, onLogout }: UserDashboardProps) {
-  const navigate = useNavigate();
+  const navigateBase = useNavigate();
+  const navigate = createTokenPreservingNavigate(navigateBase);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [workouts, setWorkouts] = useState<ScheduledWorkout[]>([]);
   const [loading, setLoading] = useState(true);

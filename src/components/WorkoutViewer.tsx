@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
+import { createTokenPreservingNavigate } from '../utils/tokenNavigation';
 import { ChevronLeft, Heart, Activity, Dumbbell, ChevronRight, CheckCircle2, Circle, PlayCircle } from 'lucide-react';
 import sequenceLogo from 'figma:asset/5c2d0c8af8dfc8338b2c35795df688d7811f7b51.png';
 import { ImageWithFallback } from './figma/ImageWithFallback';
@@ -34,7 +35,8 @@ interface WorkoutViewerProps {
 
 export function WorkoutViewer({ userId, onBack }: WorkoutViewerProps) {
   const { workoutId } = useParams();
-  const navigate = useNavigate();
+  const navigateBase = useNavigate();
+  const navigate = createTokenPreservingNavigate(navigateBase);
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const [workout, setWorkout] = useState<Workout | null>(null);
