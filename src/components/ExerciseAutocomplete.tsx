@@ -109,11 +109,11 @@ export function ExerciseAutocomplete({
     }
   };
 
-  // Filter exercises based on input value
+  // Filter exercises based on input value and limit to 8
   const filteredExercises = exercises.length > 0 
     ? exercises.filter(exercise =>
         exercise.name.toLowerCase().includes(value.toLowerCase())
-      )
+      ).slice(0, 8)
     : [];
 
   const handleSelect = (exerciseName: string) => {
@@ -144,12 +144,13 @@ export function ExerciseAutocomplete({
   const dropdownContent = open && portalContainerRef.current && (
     <div
       ref={dropdownRef}
-      className="bg-zinc-900 border border-zinc-800 rounded-lg shadow-lg max-h-60 overflow-y-auto overscroll-contain"
+      className="bg-zinc-900 border border-zinc-800 rounded-lg shadow-lg overflow-y-auto"
       style={{ 
         position: 'fixed',
         top: `${dropdownPosition.top}px`,
         left: `${dropdownPosition.left}px`,
         width: `${dropdownPosition.width}px`,
+        maxHeight: '320px', // Approximately 8 items (40px per item)
         pointerEvents: 'auto',
         scrollbarWidth: 'thin',
         scrollbarColor: '#52525b #18181b'
