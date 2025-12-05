@@ -208,27 +208,35 @@ export function ExerciseDetail({ userId, onBack }: ExerciseDetailProps) {
     }
   }, [userId, exercise, workoutId, notes]);
 
-  // Auto-save when sets change (debounced)
+  // Auto-save notes immediately when they change (no debounce for critical data)
   useEffect(() => {
-    if (!userId || !exercise || sets.length === 0) return;
+    if (!userId || !exercise || !workoutId || !notes) return;
     
-    const timer = setTimeout(() => {
-      saveSets();
-    }, 1000); // Save 1 second after last change
-    
-    return () => clearTimeout(timer);
-  }, [sets, saveSets, userId, exercise]);
-
-  // Auto-save when notes change (debounced)
-  useEffect(() => {
-    if (!userId || !exercise) return;
-    
+    // Save notes immediately when changed
     const timer = setTimeout(() => {
       saveNotes();
-    }, 1000); // Save 1 second after last change
+    }, 500); // Small delay to avoid too many saves while typing
     
     return () => clearTimeout(timer);
-  }, [notes, saveNotes, userId, exercise]);
+  }, [notes, saveNotes, userId, exercise, workoutId]);
+
+  // Ensure saves complete before component unmounts (when navigating away)
+  useEffect(() => {
+    return () => {
+      // Save on unmount if there are unsaved changes
+      if (userId && exercise && workoutId && sets.length > 0) {
+        // Save without await since we're unmounting
+        workoutsApi.saveExerciseSets(workoutId, exercise.id, userId, sets).catch(err => {
+          console.error('Error saving sets on unmount:', err);
+        });
+      }
+      if (userId && exercise && workoutId && notes) {
+        workoutsApi.saveExerciseNotes(workoutId, exercise.id, userId, notes).catch(err => {
+          console.error('Error saving notes on unmount:', err);
+        });
+      }
+    };
+  }, [userId, exercise, workoutId, sets, notes]);
 
   // Check if current exercise sets are all completed (immediate, no delay)
   const currentExerciseAllSetsCompleted = sets.length > 0 && sets.every(set => set.completed);
@@ -257,14 +265,17 @@ export function ExerciseDetail({ userId, onBack }: ExerciseDetailProps) {
   const handleCompleteWorkout = async () => {
     if (!workout || !exercise || !userId) return;
     
-    // Save current exercise first
-    await saveSets();
-    await saveNotes();
-    
-    const workoutUrl = addTokenToUrl(`/workout/${workout.id}`, token);
-    
-    // Check if all exercises are really completed
+    // Save current exercise first and wait for it to complete
     try {
+      await saveSets();
+      await saveNotes();
+      
+      // Small delay to ensure backend has processed
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      const workoutUrl = addTokenToUrl(`/workout/${workout.id}`, token);
+      
+      // Check if all exercises are really completed
       const status = await workoutsApi.getCompletionStatus(workout.id, userId);
       const totalExercises = workout.blocks.reduce((total, block) => total + block.exercises.length, 0);
       const allCompleted = Object.values(status).every(
@@ -284,8 +295,9 @@ export function ExerciseDetail({ userId, onBack }: ExerciseDetailProps) {
         navigate(workoutUrl);
       }
     } catch (err) {
-      console.error('Error checking completion:', err);
-      // Navigate back anyway
+      console.error('Error completing workout:', err);
+      // Still navigate back even if there's an error
+      const workoutUrl = addTokenToUrl(`/workout/${workout.id}`, token);
       navigate(workoutUrl);
     }
   };
@@ -339,16 +351,32 @@ export function ExerciseDetail({ userId, onBack }: ExerciseDetailProps) {
   const blockColor = getBlockColor(currentBlockIndex);
   const blockName = workout?.blocks[currentBlockIndex]?.name || '';
 
-  const updateSet = (setIndex: number, field: 'weight' | 'reps', value: string) => {
-    setSets(
-      sets.map((s, i) => (i === setIndex ? { ...s, [field]: value } : s))
-    );
+  const updateSet = async (setIndex: number, field: 'weight' | 'reps', value: string) => {
+    const newSets = sets.map((s, i) => (i === setIndex ? { ...s, [field]: value } : s));
+    setSets(newSets);
+    
+    // Save immediately for weight/reps changes
+    if (userId && exercise && workoutId) {
+      try {
+        await workoutsApi.saveExerciseSets(workoutId, exercise.id, userId, newSets);
+      } catch (err) {
+        console.error('Error saving sets:', err);
+      }
+    }
   };
 
-  const toggleSetComplete = (setIndex: number) => {
-    setSets(
-      sets.map((s, i) => (i === setIndex ? { ...s, completed: !s.completed } : s))
-    );
+  const toggleSetComplete = async (setIndex: number) => {
+    const newSets = sets.map((s, i) => (i === setIndex ? { ...s, completed: !s.completed } : s));
+    setSets(newSets);
+    
+    // Save immediately when a set is toggled
+    if (userId && exercise && workoutId) {
+      try {
+        await workoutsApi.saveExerciseSets(workoutId, exercise.id, userId, newSets);
+      } catch (err) {
+        console.error('Error saving sets immediately:', err);
+      }
+    }
   };
 
   const addSet = () => {
