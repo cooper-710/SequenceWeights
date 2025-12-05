@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Users, Dumbbell, Calendar, LogOut, Plus, UsersRound, CalendarDays } from 'lucide-react';
+import { Users, Dumbbell, Calendar, Plus, UsersRound, CalendarDays } from 'lucide-react';
 import { AthleteManager } from './AthleteManager';
 import { ExerciseLibrary } from './ExerciseLibrary';
 import { WorkoutBuilder } from './WorkoutBuilder';
@@ -47,12 +47,6 @@ export function AdminDashboard({ user, onLogout }: AdminDashboardProps) {
             </div>
             <div className="flex items-center gap-4">
               <span className="text-gray-400 text-sm">{user.name}</span>
-              <button
-                onClick={onLogout}
-                className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
-              >
-                <LogOut className="w-4 h-4" />
-              </button>
             </div>
           </div>
         </div>

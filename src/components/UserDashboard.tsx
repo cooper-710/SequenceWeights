@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Calendar, Dumbbell, LogOut, ChevronRight, Bed, Check } from 'lucide-react';
+import { Calendar, Dumbbell, ChevronRight, Bed, Check } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { workoutsApi } from '../utils/api';
 import { createTokenPreservingNavigate } from '../utils/tokenNavigation';
@@ -184,12 +184,6 @@ export function UserDashboard({ user, onLogout }: UserDashboardProps) {
 
       <div className="max-w-4xl mx-auto px-4 sm:px-6 py-12 overflow-visible">
         <div className="flex items-start mb-12 relative overflow-visible">
-          <button
-            onClick={onLogout}
-            className="mt-2 p-3 rounded-lg bg-zinc-900 border border-zinc-800 text-gray-400 hover:text-[#F56E0F] hover:border-[#F56E0F]/50 transition-all z-10"
-          >
-            <LogOut className="w-5 h-5 rotate-180" />
-          </button>
           <div className="flex items-center gap-3 sm:gap-6 absolute left-1/2 -translate-x-1/2 w-auto max-w-[calc(100%-120px)] overflow-visible">
             <div className="flex-shrink-0">
               <ImageWithFallback
