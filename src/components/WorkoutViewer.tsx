@@ -234,10 +234,10 @@ export function WorkoutViewer({ userId, onBack }: WorkoutViewerProps) {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.4 }}
-      className="h-screen bg-black flex flex-col overflow-hidden"
+      className="min-h-screen bg-black"
     >
       {/* Header */}
-      <div className="bg-black border-b border-[#F56E0F]/20 shadow-lg shadow-black/20 flex-shrink-0 overflow-visible pt-[env(safe-area-inset-top,0px)]">
+      <div className="bg-black border-b border-[#F56E0F]/20 shadow-lg shadow-black/20 overflow-visible pt-[env(safe-area-inset-top,0px)]">
         <div className="max-w-3xl mx-auto px-4 pt-4 pb-4 overflow-visible">
           <div className="flex items-start mb-6 relative overflow-visible">
             <button 
@@ -299,8 +299,8 @@ export function WorkoutViewer({ userId, onBack }: WorkoutViewerProps) {
         </div>
       </div>
 
-      {/* Scrollable Exercise List */}
-      <div className="flex-1 overflow-y-auto">
+      {/* Exercise List */}
+      <div>
         <div className="max-w-3xl mx-auto px-4 py-6 space-y-8">
           {workout.blocks.map((block, blockIndex) => (
             <div key={block.id} className="space-y-3">
