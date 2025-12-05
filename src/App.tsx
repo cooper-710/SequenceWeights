@@ -149,7 +149,11 @@ function TokenRoute({ onSetUser, onLogout }: { onSetUser: (user: { id: string; n
 }
 
 // Component to handle admin token-based routes
-function AdminTokenRoute({ onSetUser, onLogout }: { onSetUser: (user: { id: string; name: string; role: 'admin' | 'user' }) => void; onLogout: () => void }) {
+function AdminTokenRoute({ onSetUser, onLogout, parentUser }: { 
+  onSetUser: (user: { id: string; name: string; role: 'admin' | 'user' }) => void; 
+  onLogout: () => void;
+  parentUser: { id: string; name: string; role: 'admin' | 'user' } | null;
+}) {
   const location = useLocation();
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<{ id: string; name: string; role: 'admin' | 'user' } | null>(null);
@@ -187,6 +191,13 @@ function AdminTokenRoute({ onSetUser, onLogout }: { onSetUser: (user: { id: stri
       setLoading(false);
     };
 
+    // Check if already logged in as admin from parent
+    if (parentUser?.role === 'admin') {
+      setUser(parentUser);
+      setLoading(false);
+      return;
+    }
+
     if (token) {
       // Token in URL - validate it
       handleAdminLogin(token);
@@ -202,7 +213,7 @@ function AdminTokenRoute({ onSetUser, onLogout }: { onSetUser: (user: { id: stri
         setLoading(false);
       }
     }
-  }, [location.search, onSetUser]);
+  }, [location.search, onSetUser, parentUser]);
 
   const handleLogout = () => {
     storage.removeItem(STORAGE_ADMIN_TOKEN_KEY);
@@ -229,6 +240,48 @@ function AdminTokenRoute({ onSetUser, onLogout }: { onSetUser: (user: { id: stri
       <div className="text-center">
         <h1 className="text-white text-2xl mb-4">Invalid Admin Token</h1>
         <p className="text-gray-400">Please use the correct admin login link.</p>
+      </div>
+    </div>
+  );
+}
+
+// Component to handle root route
+function RootRoute({ user, loading, onSetUser }: { 
+  user: { id: string; name: string; role: 'admin' | 'user' } | null;
+  loading: boolean;
+  onSetUser: (user: { id: string; name: string; role: 'admin' | 'user' }) => void;
+}) {
+  const location = useLocation();
+
+  // Check for token in query params - redirect to login route
+  const searchParams = new URLSearchParams(location.search);
+  const token = searchParams.get('token');
+  
+  if (token) {
+    return <Navigate to={`/login?token=${token}`} replace />;
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="text-white">Loading...</div>
+      </div>
+    );
+  }
+
+  if (user) {
+    return user.role === 'admin' ? (
+      <Navigate to="/admin" replace />
+    ) : (
+      <Navigate to="/user" replace />
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-black flex items-center justify-center px-4">
+      <div className="text-center">
+        <h1 className="text-white text-2xl mb-4">No Login Link</h1>
+        <p className="text-gray-400">Please use the login link provided by your coach.</p>
       </div>
     </div>
   );
@@ -288,26 +341,7 @@ function AppContent() {
     <div className="min-h-screen bg-black">
       <Routes>
         {/* Root route - redirect based on user or show message */}
-        <Route path="/" element={
-          loading ? (
-            <div className="min-h-screen bg-black flex items-center justify-center">
-              <div className="text-white">Loading...</div>
-            </div>
-          ) : user ? (
-            user.role === 'admin' ? (
-              <Navigate to="/admin" replace />
-            ) : (
-              <Navigate to="/user" replace />
-            )
-          ) : (
-            <div className="min-h-screen bg-black flex items-center justify-center px-4">
-              <div className="text-center">
-                <h1 className="text-white text-2xl mb-4">No Login Link</h1>
-                <p className="text-gray-400">Please use the login link provided by your coach.</p>
-              </div>
-            </div>
-          )
-        } />
+        <Route path="/" element={<RootRoute user={user} loading={loading} onSetUser={setUser} />} />
         
         {/* Token-based login routes - use query parameters */}
         <Route path="/login" element={<TokenRoute onSetUser={setUser} onLogout={handleLogout} />} />
@@ -340,7 +374,7 @@ function AppContent() {
         } />
         
         {/* Admin route - handles both token login and dashboard */}
-        <Route path="/admin" element={<AdminTokenRoute onSetUser={setUser} onLogout={handleLogout} />} />
+        <Route path="/admin" element={<AdminTokenRoute onSetUser={setUser} onLogout={handleLogout} parentUser={user} />} />
       </Routes>
     </div>
   );
