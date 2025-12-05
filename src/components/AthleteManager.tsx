@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Plus, Search, Mail, UserCircle, Copy, Check, Trash2 } from 'lucide-react';
 import { athletesApi, Athlete } from '../utils/api';
-import { slugifyName } from '../utils/nameUtils';
 
 interface AthleteManagerProps {
   onSelectAthlete: (athlete: Athlete) => void;
@@ -59,7 +58,7 @@ export function AthleteManager({ onSelectAthlete }: AthleteManagerProps) {
   };
 
   const getLoginLink = (athlete: Athlete) => {
-    if (!athlete.name) return '';
+    if (!athlete.loginToken) return '';
     
     // In production, use the production URL from environment variable
     // In development, use current origin
@@ -67,8 +66,8 @@ export function AthleteManager({ onSelectAthlete }: AthleteManagerProps) {
       ? (import.meta.env.VITE_APP_URL || 'https://sequence-weights-git-main-cooper-710s-projects.vercel.app')
       : window.location.origin;
     
-    const nameSlug = slugifyName(athlete.name);
-    return `${baseUrl}/${nameSlug}`;
+    // Use the login token for the link
+    return `${baseUrl}/login/${athlete.loginToken}`;
   };
 
   const handleCopyLink = (link: string, athleteId: string, e?: React.MouseEvent) => {
