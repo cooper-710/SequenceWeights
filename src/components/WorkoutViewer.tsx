@@ -48,6 +48,8 @@ export function WorkoutViewer({ userId, onBack }: WorkoutViewerProps) {
     if (!workoutId || !userId) return;
     
     try {
+      // Add a small delay to ensure backend has processed any recent saves
+      await new Promise(resolve => setTimeout(resolve, 100));
       const status = await workoutsApi.getCompletionStatus(workoutId, userId);
       setCompletionStatus(status);
     } catch (err) {

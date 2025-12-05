@@ -46,7 +46,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (exercisesError) throw exercisesError;
 
       for (const exercise of exercises || []) {
-        // Get completion data for this exercise
+        // Get ALL sets (not just completed) to find the actual total
+        const { data: allSetsData, error: setsError } = await supabase
+          .from('exercise_sets')
+          .select('set_number')
+          .eq('block_exercise_id', exercise.id)
+          .eq('workout_id', workoutId)
+          .eq('athlete_id', athleteId);
+
+        if (setsError) throw setsError;
+
+        // Get completed sets
         const { data: completedSetsData, error: countError } = await supabase
           .from('exercise_sets')
           .select('*', { count: 'exact', head: false })
@@ -57,7 +67,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         if (countError) throw countError;
 
-        const totalSets = exercise.sets;
+        // Calculate actual total sets: max of template sets and highest saved set number
+        const maxSavedSetNumber = allSetsData && allSetsData.length > 0
+          ? Math.max(...allSetsData.map((s: any) => s.set_number))
+          : 0;
+        const totalSets = Math.max(exercise.sets, maxSavedSetNumber);
         const completedCount = completedSetsData?.length || 0;
 
         let status: 'completed' | 'in-progress' | 'not-started' = 'not-started';

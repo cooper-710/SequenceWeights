@@ -288,17 +288,30 @@ export function ExerciseDetail({ userId, onBack }: ExerciseDetailProps) {
       await saveSets();
       // await saveNotes(); // Notes functionality disabled
       
-      // Small delay to ensure backend has processed
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // Wait longer to ensure backend has processed the save
+      await new Promise(resolve => setTimeout(resolve, 500));
       
       const workoutUrl = addTokenToUrl(`/workout/${workout.id}`, token);
       
-      // Check if all exercises are really completed
-      const status = await workoutsApi.getCompletionStatus(workout.id, userId);
-      const totalExercises = workout.blocks.reduce((total, block) => total + block.exercises.length, 0);
-      const allCompleted = Object.values(status).every(
-        (exerciseStatus) => exerciseStatus.status === 'completed'
-      ) && Object.keys(status).length === totalExercises;
+      // Check if all exercises are really completed (with retry for freshness)
+      let status;
+      let allCompleted = false;
+      let retries = 0;
+      while (retries < 3 && !allCompleted) {
+        status = await workoutsApi.getCompletionStatus(workout.id, userId);
+        const totalExercises = workout.blocks.reduce((total, block) => total + block.exercises.length, 0);
+        allCompleted = Object.values(status).every(
+          (exerciseStatus) => exerciseStatus.status === 'completed'
+        ) && Object.keys(status).length === totalExercises;
+        
+        if (!allCompleted && retries < 2) {
+          // Wait a bit more and retry
+          await new Promise(resolve => setTimeout(resolve, 300));
+          retries++;
+        } else {
+          break;
+        }
+      }
       
       if (allCompleted) {
         // Show celebration animation
@@ -307,11 +320,10 @@ export function ExerciseDetail({ userId, onBack }: ExerciseDetailProps) {
         // Wait for animation, then navigate
         setTimeout(() => {
           navigate(workoutUrl);
-          // Trigger a refresh after navigation by using a query param
-          // This will cause WorkoutViewer to reload completion status
+          // Trigger a refresh after navigation
           setTimeout(() => {
             window.dispatchEvent(new Event('focus'));
-          }, 100);
+          }, 200);
         }, 2500); // 2.5 seconds for celebration
       } else {
         // Not all exercises completed, just navigate back
@@ -319,7 +331,7 @@ export function ExerciseDetail({ userId, onBack }: ExerciseDetailProps) {
         // Trigger refresh after navigation
         setTimeout(() => {
           window.dispatchEvent(new Event('focus'));
-        }, 100);
+        }, 200);
       }
     } catch (err) {
       console.error('Error completing workout:', err);
