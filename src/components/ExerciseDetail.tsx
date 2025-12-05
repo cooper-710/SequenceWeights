@@ -307,10 +307,19 @@ export function ExerciseDetail({ userId, onBack }: ExerciseDetailProps) {
         // Wait for animation, then navigate
         setTimeout(() => {
           navigate(workoutUrl);
+          // Trigger a refresh after navigation by using a query param
+          // This will cause WorkoutViewer to reload completion status
+          setTimeout(() => {
+            window.dispatchEvent(new Event('focus'));
+          }, 100);
         }, 2500); // 2.5 seconds for celebration
       } else {
         // Not all exercises completed, just navigate back
         navigate(workoutUrl);
+        // Trigger refresh after navigation
+        setTimeout(() => {
+          window.dispatchEvent(new Event('focus'));
+        }, 100);
       }
     } catch (err) {
       console.error('Error completing workout:', err);

@@ -87,7 +87,11 @@ export function WorkoutViewer({ userId, onBack }: WorkoutViewerProps) {
   // Reload completion status when navigating back to workout (location change)
   useEffect(() => {
     if (workoutId && userId && location.pathname.startsWith('/workout/')) {
-      loadCompletionStatus();
+      // Add a small delay to ensure backend has processed any recent saves
+      const timer = setTimeout(() => {
+        loadCompletionStatus();
+      }, 200);
+      return () => clearTimeout(timer);
     }
   }, [location.pathname, workoutId, userId, loadCompletionStatus]);
 
@@ -337,10 +341,10 @@ export function WorkoutViewer({ userId, onBack }: WorkoutViewerProps) {
                       </div>
 
                       {/* Set Progress Indicators */}
-                      {exercise.sets > 0 && (
+                      {(statusData?.totalSets || exercise.sets) > 0 && (
                         <div className="mt-3 pt-3 border-t border-gray-800">
                           <div className="flex items-center gap-2">
-                            {Array.from({ length: exercise.sets }, (_, index) => {
+                            {Array.from({ length: statusData?.totalSets || exercise.sets }, (_, index) => {
                               const setNumber = index + 1;
                               const completedSets = statusData?.completedSets || 0;
                               const isCompleted = setNumber <= completedSets;
