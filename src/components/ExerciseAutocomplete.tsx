@@ -156,9 +156,7 @@ export function ExerciseAutocomplete({
         height: 'auto'
       }}
     >
-      {loading ? (
-        <div className="py-6 text-center text-sm text-gray-400">Loading exercises...</div>
-      ) : filteredExercises.length === 0 ? (
+      {!loading && filteredExercises.length === 0 ? (
         <div className="py-6 text-center text-sm text-gray-400">No exercises found.</div>
       ) : (
         filteredExercises.map((exercise) => (

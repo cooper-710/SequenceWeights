@@ -5,6 +5,7 @@ import { NavigationState } from '../utils/navigation';
 import { ChevronLeft, Check, PlayCircle, XCircle, Plus } from 'lucide-react';
 import sequenceLogo from 'figma:asset/5c2d0c8af8dfc8338b2c35795df688d7811f7b51.png';
 import { ImageWithFallback } from './figma/ImageWithFallback';
+import { LoadingScreen } from './LoadingScreen';
 import { workoutsApi, exercisesApi, Workout, Exercise as ExerciseLib } from '../utils/api';
 
 interface ExerciseDetailProps {
@@ -499,11 +500,7 @@ export function ExerciseDetail({ userId, onBack }: ExerciseDetailProps) {
   const embedUrl = getVideoEmbedUrl(videoUrl);
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="text-white">Loading exercise...</div>
-      </div>
-    );
+    return <LoadingScreen />;
   }
 
   if (error || !exercise) {

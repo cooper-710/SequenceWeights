@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Plus, Search, Dumbbell, Video, Edit, Trash2, Upload, X } from 'lucide-react';
 import { exercisesApi, Exercise } from '../utils/api';
+import { LoadingScreen } from './LoadingScreen';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
@@ -233,11 +234,7 @@ export function ExerciseLibrary() {
   );
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-white">Loading exercises...</div>
-      </div>
-    );
+    return <LoadingScreen />;
   }
 
   if (error) {
