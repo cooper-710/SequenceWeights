@@ -1,10 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
+import { motion } from 'framer-motion';
 import { useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { createTokenPreservingNavigate } from '../utils/tokenNavigation';
 import { NavigationState } from '../utils/navigation';
 import { ChevronLeft, Heart, Activity, Dumbbell, ChevronRight, CheckCircle2, Circle, PlayCircle } from 'lucide-react';
 import sequenceLogo from 'figma:asset/5c2d0c8af8dfc8338b2c35795df688d7811f7b51.png';
 import { ImageWithFallback } from './figma/ImageWithFallback';
+import { LoadingScreen } from './LoadingScreen';
 import { workoutsApi, Workout } from '../utils/api';
 
 interface Exercise {
@@ -198,11 +200,7 @@ export function WorkoutViewer({ userId, onBack }: WorkoutViewerProps) {
   };
 
   if (loading) {
-    return (
-      <div className="h-screen bg-black flex items-center justify-center">
-        <div className="text-white">Loading workout...</div>
-      </div>
-    );
+    return <LoadingScreen />;
   }
 
   if (error || !workout) {
@@ -232,7 +230,12 @@ export function WorkoutViewer({ userId, onBack }: WorkoutViewerProps) {
   const isWorkoutComplete = totalExercises > 0 && completedExercises === totalExercises;
 
   return (
-    <div className="h-screen bg-black flex flex-col overflow-hidden">
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.4 }}
+      className="h-screen bg-black flex flex-col overflow-hidden"
+    >
       {/* Header */}
       <div className="bg-black border-b border-[#F56E0F]/20 shadow-lg shadow-black/20 flex-shrink-0 overflow-visible">
         <div className="max-w-3xl mx-auto px-4 pt-12 pb-4 overflow-visible">
@@ -408,6 +411,6 @@ export function WorkoutViewer({ userId, onBack }: WorkoutViewerProps) {
           ))}
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }

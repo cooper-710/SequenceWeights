@@ -4,6 +4,8 @@ import { AdminDashboard } from './components/AdminDashboard';
 import { UserDashboard } from './components/UserDashboard';
 import { WorkoutViewer } from './components/WorkoutViewer';
 import { ExerciseDetail } from './components/ExerciseDetail';
+import { LoadingScreen } from './components/LoadingScreen';
+import { PageTransition } from './components/PageTransition';
 import { getTokenFromUrl, addTokenToUrl } from './utils/tokenNavigation';
 
 // Admin token - in production, this should be set via environment variable
@@ -66,11 +68,7 @@ function TokenRoute({ onSetUser, onLogout }: { onSetUser: (user: { id: string; n
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="text-white">Loading...</div>
-      </div>
-    );
+    return <LoadingScreen />;
   }
 
   if (user?.role === 'user') {
@@ -156,11 +154,7 @@ function AdminTokenRoute({ onSetUser, onLogout, parentUser }: {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="text-white">Loading...</div>
-      </div>
-    );
+    return <LoadingScreen />;
   }
 
   if (user?.role === 'admin') {
@@ -286,11 +280,7 @@ function ProtectedRoute({
   }, [token, onSetUser]); // Removed location dependency to avoid re-auth on navigation
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="text-white">Loading...</div>
-      </div>
-    );
+    return <LoadingScreen />;
   }
 
   if (!user) {
@@ -342,41 +332,43 @@ function AppContent() {
 
   return (
     <div className="min-h-screen bg-black">
-      <Routes>
-        {/* Root route - redirect based on user or show message */}
-        <Route path="/" element={<RootRoute user={user} onSetUser={setUser} />} />
-        
-        {/* Token-based login routes - use query parameters */}
-        <Route path="/login" element={<TokenRoute onSetUser={setUser} onLogout={handleLogout} />} />
-        
-        {/* Workout route - requires user and token */}
-        <Route path="/workout/:workoutId" element={
-          <ProtectedRoute 
-            onSetUser={setUser}
-            render={(user) => <WorkoutViewer userId={user.id} onBack={() => window.history.back()} />}
-          />
-        } />
-        
-        {/* Exercise route - requires user and token */}
-        <Route path="/exercise/:workoutId/:exerciseName" element={
-          <ProtectedRoute 
-            onSetUser={setUser}
-            render={(user) => <ExerciseDetail userId={user.id} onBack={() => window.history.back()} />}
-          />
-        } />
-        
-        {/* User dashboard route - requires user and token */}
-        <Route path="/user" element={
-          <ProtectedRoute 
-            requiredRole="user" 
-            onSetUser={setUser}
-            render={(user) => <UserDashboard user={user} onLogout={handleLogout} />}
-          />
-        } />
-        
-        {/* Admin route - handles both token login and dashboard */}
-        <Route path="/admin" element={<AdminTokenRoute onSetUser={setUser} onLogout={handleLogout} parentUser={user} />} />
-      </Routes>
+      <PageTransition>
+        <Routes>
+          {/* Root route - redirect based on user or show message */}
+          <Route path="/" element={<RootRoute user={user} onSetUser={setUser} />} />
+          
+          {/* Token-based login routes - use query parameters */}
+          <Route path="/login" element={<TokenRoute onSetUser={setUser} onLogout={handleLogout} />} />
+          
+          {/* Workout route - requires user and token */}
+          <Route path="/workout/:workoutId" element={
+            <ProtectedRoute 
+              onSetUser={setUser}
+              render={(user) => <WorkoutViewer userId={user.id} onBack={() => window.history.back()} />}
+            />
+          } />
+          
+          {/* Exercise route - requires user and token */}
+          <Route path="/exercise/:workoutId/:exerciseName" element={
+            <ProtectedRoute 
+              onSetUser={setUser}
+              render={(user) => <ExerciseDetail userId={user.id} onBack={() => window.history.back()} />}
+            />
+          } />
+          
+          {/* User dashboard route - requires user and token */}
+          <Route path="/user" element={
+            <ProtectedRoute 
+              requiredRole="user" 
+              onSetUser={setUser}
+              render={(user) => <UserDashboard user={user} onLogout={handleLogout} />}
+            />
+          } />
+          
+          {/* Admin route - handles both token login and dashboard */}
+          <Route path="/admin" element={<AdminTokenRoute onSetUser={setUser} onLogout={handleLogout} parentUser={user} />} />
+        </Routes>
+      </PageTransition>
     </div>
   );
 }

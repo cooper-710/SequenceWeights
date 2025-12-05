@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { Calendar, Dumbbell, ChevronRight, Bed, Check } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { workoutsApi } from '../utils/api';
@@ -209,7 +210,12 @@ export function UserDashboard({ user, onLogout }: UserDashboardProps) {
   };
 
   return (
-    <div className="min-h-screen bg-black">
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.4 }}
+      className="min-h-screen bg-black"
+    >
       {/* Header */}
       <div className="bg-gradient-to-b from-black to-black border-b border-[#262626]">
         {/* Old header removed */}
@@ -410,6 +416,6 @@ export function UserDashboard({ user, onLogout }: UserDashboardProps) {
           </div>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }
