@@ -296,19 +296,9 @@ function AppContent() {
           )
         } />
         
-        {/* Admin route - you can add admin token auth here if needed */}
-        <Route path="/admin/*" element={
-          user?.role === 'admin' ? (
-            <AdminDashboard user={user} onLogout={handleLogout} />
-          ) : (
-            <div className="min-h-screen bg-black flex items-center justify-center px-4">
-              <div className="text-center">
-                <h1 className="text-white text-2xl mb-4">Admin Access Required</h1>
-                <p className="text-gray-400">Please use the admin login link.</p>
-              </div>
-            </div>
-          )
-        } />
+        {/* Token-based login routes - must come before catch-all routes */}
+        <Route path="/login/:token" element={<TokenRoute onSetUser={setUser} onLogout={handleLogout} />} />
+        <Route path="/admin/:token" element={<AdminTokenRoute onSetUser={setUser} onLogout={handleLogout} />} />
         
         {/* Workout route - requires user */}
         <Route path="/workout/:workoutId" element={
@@ -337,11 +327,19 @@ function AppContent() {
           )
         } />
         
-        {/* Token-based login route - this is the main entry point for athletes */}
-        <Route path="/login/:token" element={<TokenRoute onSetUser={setUser} onLogout={handleLogout} />} />
-        
-        {/* Admin token-based login route */}
-        <Route path="/admin/:token" element={<AdminTokenRoute onSetUser={setUser} onLogout={handleLogout} />} />
+        {/* Admin route - catch-all must come after specific routes */}
+        <Route path="/admin/*" element={
+          user?.role === 'admin' ? (
+            <AdminDashboard user={user} onLogout={handleLogout} />
+          ) : (
+            <div className="min-h-screen bg-black flex items-center justify-center px-4">
+              <div className="text-center">
+                <h1 className="text-white text-2xl mb-4">Admin Access Required</h1>
+                <p className="text-gray-400">Please use the admin login link.</p>
+              </div>
+            </div>
+          )
+        } />
       </Routes>
     </div>
   );
