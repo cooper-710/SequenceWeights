@@ -16,61 +16,43 @@ export interface NavigationState {
   workoutCompletionStatus?: Record<string, boolean>;
 }
 
-// Helper to navigate with workout data
-// Accepts any function that matches the navigate signature
-export const navigateWithWorkout = async (
+// Helper to navigate with workout data (passes existing data if provided, navigates immediately)
+export const navigateWithWorkout = (
   navigate: (to: string, options?: { state?: NavigationState }) => void,
   url: string,
-  workoutId: string,
-  userId: string,
-  includeCompletionStatus = true
+  existingData?: { workout?: Workout; completionStatus?: NavigationState['completionStatus'] }
 ) => {
-  try {
-    const workout = await workoutsApi.getById(workoutId);
-    const state: NavigationState = { workout };
-    
-    if (includeCompletionStatus) {
-      const completionStatus = await workoutsApi.getCompletionStatus(workoutId, userId);
-      state.completionStatus = completionStatus;
-    }
-    
-    navigate(url, { state });
-  } catch (err) {
-    console.error('Error fetching workout data:', err);
-    navigate(url, {}); // Navigate anyway without state
+  // Navigate immediately with existing data if available
+  const state: NavigationState = {};
+  if (existingData?.workout) {
+    state.workout = existingData.workout;
   }
+  if (existingData?.completionStatus) {
+    state.completionStatus = existingData.completionStatus;
+  }
+  
+  navigate(url, Object.keys(state).length > 0 ? { state } : {});
+  
+  // Components will fetch their own data if not provided via state
 };
 
-// Helper to navigate with workouts list
-export const navigateWithWorkouts = async (
+// Helper to navigate with workouts list (navigates immediately - too slow to fetch all completion statuses)
+export const navigateWithWorkouts = (
   navigate: (to: string, options?: { state?: NavigationState }) => void,
   url: string,
-  userId: string
+  existingData?: { workouts?: Workout[]; workoutCompletionStatus?: Record<string, boolean> }
 ) => {
-  try {
-    const workouts = await workoutsApi.getAll({ athleteId: userId });
-    const completionStatus: Record<string, boolean> = {};
-    
-    // Load completion status for all workouts
-    for (const workout of workouts) {
-      try {
-        const status = await workoutsApi.getCompletionStatus(workout.id, userId);
-        const allExercises = workout.blocks.flatMap(block => block.exercises);
-        const isCompleted = allExercises.length > 0 && allExercises.every(exercise => {
-          const exerciseName = exercise.exerciseName || (exercise as any).name || '';
-          const exerciseStatus = status[exerciseName];
-          return exerciseStatus?.status === 'completed';
-        });
-        completionStatus[workout.id] = isCompleted;
-      } catch (err) {
-        completionStatus[workout.id] = false;
-      }
-    }
-    
-    navigate(url, { state: { workouts, workoutCompletionStatus: completionStatus } });
-  } catch (err) {
-    console.error('Error fetching workouts:', err);
-    navigate(url, {});
+  // Navigate immediately with existing data if available
+  const state: NavigationState = {};
+  if (existingData?.workouts) {
+    state.workouts = existingData.workouts;
   }
+  if (existingData?.workoutCompletionStatus) {
+    state.workoutCompletionStatus = existingData.workoutCompletionStatus;
+  }
+  
+  navigate(url, Object.keys(state).length > 0 ? { state } : {});
+  
+  // UserDashboard will fetch its own data if not provided via state
 };
 

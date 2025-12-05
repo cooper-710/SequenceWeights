@@ -298,22 +298,6 @@ export function ExerciseDetail({ userId, onBack }: ExerciseDetailProps) {
     checkAllCompleted();
   }, [workout, userId, sets]); // Re-check when sets change
 
-  // Helper to get fresh completion status and navigate with it
-  const navigateWithFreshStatus = async (url: string) => {
-    if (!workout || !userId) {
-      navigate(url);
-      return;
-    }
-    try {
-      // Get fresh completion status before navigating
-      const freshStatus = await workoutsApi.getCompletionStatus(workout.id, userId);
-      navigate(url, { state: { completionStatus: freshStatus } });
-    } catch (err) {
-      console.error('Error fetching completion status:', err);
-      // Navigate anyway without state
-      navigate(url);
-    }
-  };
 
   const handleCompleteWorkout = async () => {
     if (!workout || !exercise || !userId) return;
@@ -352,13 +336,13 @@ export function ExerciseDetail({ userId, onBack }: ExerciseDetailProps) {
         // Show celebration animation
         setShowCelebration(true);
         
-        // Wait for animation, then navigate with fresh status
-        setTimeout(async () => {
-          await navigateWithFreshStatus(workoutUrl);
+        // Wait for animation, then navigate with existing workout data
+        setTimeout(() => {
+          navigate(workoutUrl, workout ? { state: { workout } } : {});
         }, 2500); // 2.5 seconds for celebration
       } else {
-        // Not all exercises completed, navigate back with fresh status
-        await navigateWithFreshStatus(workoutUrl);
+        // Not all exercises completed, navigate back with existing workout data
+        navigate(workoutUrl, workout ? { state: { workout } } : {});
       }
     } catch (err) {
       console.error('Error completing workout:', err);
@@ -528,10 +512,11 @@ export function ExerciseDetail({ userId, onBack }: ExerciseDetailProps) {
         <div className="text-center">
           <p className="text-red-400 mb-4">{error || 'Exercise not found'}</p>
           <button
-            onClick={async () => {
-              if (workoutId && workout && userId) {
+            onClick={() => {
+              if (workoutId && workout) {
                 const url = addTokenToUrl(`/workout/${workoutId}`, token);
-                await navigateWithFreshStatus(url);
+                // Navigate with existing workout data
+                navigate(url, { state: { workout } });
               } else {
                 onBack();
               }
@@ -557,9 +542,10 @@ export function ExerciseDetail({ userId, onBack }: ExerciseDetailProps) {
                   await saveSets();
                   // await saveNotes(); // Notes functionality disabled
                 }
-                if (workoutId && workout && userId) {
+                if (workoutId && workout) {
                   const url = addTokenToUrl(`/workout/${workoutId}`, token);
-                  await navigateWithFreshStatus(url);
+                  // Navigate with existing workout data
+                  navigate(url, { state: { workout } });
                 } else {
                   onBack();
                 }

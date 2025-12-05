@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { createTokenPreservingNavigate } from '../utils/tokenNavigation';
-import { NavigationState, navigateWithWorkouts } from '../utils/navigation';
+import { NavigationState } from '../utils/navigation';
 import { ChevronLeft, Heart, Activity, Dumbbell, ChevronRight, CheckCircle2, Circle, PlayCircle } from 'lucide-react';
 import sequenceLogo from 'figma:asset/5c2d0c8af8dfc8338b2c35795df688d7811f7b51.png';
 import { ImageWithFallback } from './figma/ImageWithFallback';
@@ -247,8 +247,9 @@ export function WorkoutViewer({ userId, onBack }: WorkoutViewerProps) {
         <div className="text-center">
           <p className="text-red-400 mb-4">{error || 'Workout not found'}</p>
           <button
-            onClick={async () => {
-              await navigateWithWorkouts(navigate, '/user', userId);
+            onClick={() => {
+              // Navigate immediately - UserDashboard will fetch its own data
+              navigate('/user');
             }}
             className="text-orange-500 hover:text-orange-600"
           >
@@ -273,8 +274,9 @@ export function WorkoutViewer({ userId, onBack }: WorkoutViewerProps) {
         <div className="max-w-3xl mx-auto px-4 pt-12 pb-4 overflow-visible">
           <div className="flex items-start mb-6 relative overflow-visible">
             <button 
-              onClick={async () => {
-                await navigateWithWorkouts(navigate, '/user', userId);
+              onClick={() => {
+                // Navigate immediately - UserDashboard will fetch its own data
+                navigate('/user');
               }} 
               className="mt-2 p-3 rounded-lg bg-zinc-900 border border-zinc-800 text-gray-400 hover:text-[#F56E0F] hover:border-[#F56E0F]/50 transition-all z-10"
             >

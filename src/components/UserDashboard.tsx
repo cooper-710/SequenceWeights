@@ -3,7 +3,7 @@ import { Calendar, Dumbbell, ChevronRight, Bed, Check } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { workoutsApi } from '../utils/api';
 import { createTokenPreservingNavigate } from '../utils/tokenNavigation';
-import { NavigationState, navigateWithWorkout } from '../utils/navigation';
+import { NavigationState } from '../utils/navigation';
 import sequenceLogo from 'figma:asset/5c2d0c8af8dfc8338b2c35795df688d7811f7b51.png';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 
@@ -242,8 +242,9 @@ export function UserDashboard({ user, onLogout }: UserDashboardProps) {
 
           {todaysWorkout ? (
             <div
-              onClick={async () => {
-                await navigateWithWorkout(navigate, `/workout/${todaysWorkout.id}`, todaysWorkout.id, user.id);
+              onClick={() => {
+                // Navigate immediately - WorkoutViewer will fetch its own data
+                navigate(`/workout/${todaysWorkout.id}`);
               }}
               className="bg-[#F56E0F]/30 border border-[#F56E0F] rounded-xl p-6 cursor-pointer hover:bg-[#F56E0F]/40 transition-all transform hover:scale-[1.02]"
             >
@@ -374,8 +375,9 @@ export function UserDashboard({ user, onLogout }: UserDashboardProps) {
             {sortedWorkouts.map((workout) => (
               <div
                 key={workout.id}
-                onClick={async () => {
-                  await navigateWithWorkout(navigate, `/workout/${workout.id}`, workout.id, user.id);
+                onClick={() => {
+                  // Navigate immediately - WorkoutViewer will fetch its own data
+                  navigate(`/workout/${workout.id}`);
                 }}
                 className="bg-zinc-900 border border-zinc-800 rounded-lg p-4 hover:border-zinc-700 transition-colors cursor-pointer"
               >
