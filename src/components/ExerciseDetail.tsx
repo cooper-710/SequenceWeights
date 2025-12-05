@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { createTokenPreservingNavigate, addTokenToUrl } from '../utils/tokenNavigation';
+import { createTokenPreservingNavigate, addTokenToUrl, addPlayerToUrl, getPlayerFromUrl } from '../utils/tokenNavigation';
 import { NavigationState } from '../utils/navigation';
 import { ChevronLeft, Check, PlayCircle, XCircle, Plus } from 'lucide-react';
 import sequenceLogo from 'figma:asset/5c2d0c8af8dfc8338b2c35795df688d7811f7b51.png';
@@ -36,8 +36,9 @@ export function ExerciseDetail({ userId, onBack }: ExerciseDetailProps) {
   const location = useLocation();
   const decodedExerciseName = exerciseName ? decodeURIComponent(exerciseName) : '';
   
-  // Get token for manual URL construction if needed
+  // Get token or player name for manual URL construction if needed
   const token = new URLSearchParams(window.location.search).get('token');
+  const playerName = getPlayerFromUrl();
 
   const [workout, setWorkout] = useState<Workout | null>(null);
   const [exercise, setExercise] = useState<WorkoutExercise | null>(null);
@@ -311,7 +312,9 @@ export function ExerciseDetail({ userId, onBack }: ExerciseDetailProps) {
       // Wait longer to ensure backend has processed the save
       await new Promise(resolve => setTimeout(resolve, 500));
       
-      const workoutUrl = addTokenToUrl(`/workout/${workout.id}`, token);
+      const workoutUrl = playerName 
+        ? addPlayerToUrl(`/workout/${workout.id}`, playerName)
+        : addTokenToUrl(`/workout/${workout.id}`, token);
       
       // Check if all exercises are really completed (with retry for freshness)
       let status;
@@ -348,7 +351,9 @@ export function ExerciseDetail({ userId, onBack }: ExerciseDetailProps) {
     } catch (err) {
       console.error('Error completing workout:', err);
       // Still navigate back even if there's an error
-      const workoutUrl = addTokenToUrl(`/workout/${workout.id}`, token);
+      const workoutUrl = playerName 
+        ? addPlayerToUrl(`/workout/${workout.id}`, playerName)
+        : addTokenToUrl(`/workout/${workout.id}`, token);
       navigate(workoutUrl);
     }
   };
@@ -358,7 +363,9 @@ export function ExerciseDetail({ userId, onBack }: ExerciseDetailProps) {
       await saveSets(); // Save before navigating
       // await saveNotes(); // Notes functionality disabled
       const prev = allExercises[currentIndex - 1];
-      const url = addTokenToUrl(`/exercise/${workout.id}/${encodeURIComponent(prev.name)}`, token);
+      const url = playerName 
+        ? addPlayerToUrl(`/exercise/${workout.id}/${encodeURIComponent(prev.name)}`, playerName)
+        : addTokenToUrl(`/exercise/${workout.id}/${encodeURIComponent(prev.name)}`, token);
       // Pass workout data via state to prevent flash
       navigate(url, { state: { workout } });
     }
@@ -369,7 +376,9 @@ export function ExerciseDetail({ userId, onBack }: ExerciseDetailProps) {
       await saveSets(); // Save before navigating
       // await saveNotes(); // Notes functionality disabled
       const next = allExercises[currentIndex + 1];
-      const url = addTokenToUrl(`/exercise/${workout.id}/${encodeURIComponent(next.name)}`, token);
+      const url = playerName 
+        ? addPlayerToUrl(`/exercise/${workout.id}/${encodeURIComponent(next.name)}`, playerName)
+        : addTokenToUrl(`/exercise/${workout.id}/${encodeURIComponent(next.name)}`, token);
       // Pass workout data via state to prevent flash
       navigate(url, { state: { workout } });
     } else if (!hasNext && currentExerciseAllSetsCompleted) {
@@ -511,7 +520,9 @@ export function ExerciseDetail({ userId, onBack }: ExerciseDetailProps) {
           <button
             onClick={() => {
               if (workoutId && workout) {
-                const url = addTokenToUrl(`/workout/${workoutId}`, token);
+                const url = playerName 
+                  ? addPlayerToUrl(`/workout/${workoutId}`, playerName)
+                  : addTokenToUrl(`/workout/${workoutId}`, token);
                 // Navigate with existing workout data
                 navigate(url, { state: { workout } });
               } else {
@@ -540,7 +551,9 @@ export function ExerciseDetail({ userId, onBack }: ExerciseDetailProps) {
                   // await saveNotes(); // Notes functionality disabled
                 }
                 if (workoutId && workout) {
-                  const url = addTokenToUrl(`/workout/${workoutId}`, token);
+                  const url = playerName 
+                    ? addPlayerToUrl(`/workout/${workoutId}`, playerName)
+                    : addTokenToUrl(`/workout/${workoutId}`, token);
                   // Navigate with existing workout data
                   navigate(url, { state: { workout } });
                 } else {

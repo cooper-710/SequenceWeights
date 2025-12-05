@@ -12,7 +12,46 @@ function slugifyName(name: string): string {
     .replace(/[^a-z0-9-]/g, '');
 }
 
-// GET /api/auth/by-name/:name - Login by name (path-based auth)
+// GET /api/auth/by-name?player=Name - Login by name (query-based auth)
+router.get('/by-name', (req, res) => {
+  try {
+    const playerName = req.query.player as string;
+    
+    if (!playerName) {
+      return res.status(400).json({ error: 'Player name is required' });
+    }
+    
+    // Decode the player name (handle + as spaces)
+    const decodedName = decodeURIComponent(playerName.replace(/\+/g, '%20'));
+    
+    // Get all athletes and find by exact name match (case-insensitive)
+    const allAthletes = db.prepare('SELECT * FROM athletes').all() as any[];
+    const athlete = allAthletes.find(a => 
+      a.name.toLowerCase() === decodedName.toLowerCase()
+    );
+    
+    if (!athlete) {
+      return res.status(401).json({ error: 'Athlete not found' });
+    }
+    
+    // Return athlete data (without password)
+    const { password_hash, login_token, ...athleteWithoutPassword } = athlete;
+    
+    res.json({
+      user: {
+        id: athlete.id,
+        name: athlete.name,
+        email: athlete.email,
+        role: 'user' as const,
+      },
+    });
+  } catch (error) {
+    console.error('Error during name-based login:', error);
+    res.status(500).json({ error: 'Failed to login' });
+  }
+});
+
+// GET /api/auth/by-name/:name - Login by name (path-based auth) - kept for backward compatibility
 router.get('/by-name/:name', (req, res) => {
   try {
     const { name } = req.params;

@@ -58,13 +58,14 @@ export function AthleteManager({ onSelectAthlete }: AthleteManagerProps) {
   };
 
   const getLoginLink = (athlete: Athlete) => {
-    if (!athlete.loginToken) return '';
+    if (!athlete.name) return '';
     
     // Always use current origin - works in both dev and production
     const baseUrl = window.location.origin;
     
-    // Use query parameter instead of path parameter
-    return `${baseUrl}/login?token=${athlete.loginToken}`;
+    // Use player name in query parameter (URL-encoded, spaces become +)
+    const encodedName = encodeURIComponent(athlete.name).replace(/%20/g, '+');
+    return `${baseUrl}/?mode=player&player=${encodedName}`;
   };
 
   const handleCopyLink = (link: string, athleteId: string, e?: React.MouseEvent) => {

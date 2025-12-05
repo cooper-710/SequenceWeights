@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
-import { createTokenPreservingNavigate } from '../utils/tokenNavigation';
+import { createTokenPreservingNavigate, getPlayerFromUrl, addPlayerToUrl } from '../utils/tokenNavigation';
 import { NavigationState } from '../utils/navigation';
 import { ChevronLeft, Heart, Activity, Dumbbell, ChevronRight, CheckCircle2, Circle, PlayCircle } from 'lucide-react';
 import sequenceLogo from 'figma:asset/5c2d0c8af8dfc8338b2c35795df688d7811f7b51.png';
@@ -325,9 +325,12 @@ export function WorkoutViewer({ userId, onBack }: WorkoutViewerProps) {
                       key={exercise.id}
                       onClick={() => {
                         const token = searchParams.get('token');
-                        const url = token 
-                          ? `/exercise/${workout.id}/${encodeURIComponent(exercise.exerciseName)}?token=${token}`
-                          : `/exercise/${workout.id}/${encodeURIComponent(exercise.exerciseName)}`;
+                        const playerName = getPlayerFromUrl();
+                        const url = playerName
+                          ? addPlayerToUrl(`/exercise/${workout.id}/${encodeURIComponent(exercise.exerciseName)}`, playerName)
+                          : token 
+                            ? `/exercise/${workout.id}/${encodeURIComponent(exercise.exerciseName)}?token=${token}`
+                            : `/exercise/${workout.id}/${encodeURIComponent(exercise.exerciseName)}`;
                         // Pass workout data via state to prevent flash
                         navigate(url, { state: { workout } });
                       }}

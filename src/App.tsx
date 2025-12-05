@@ -5,21 +5,23 @@ import { UserDashboard } from './components/UserDashboard';
 import { WorkoutViewer } from './components/WorkoutViewer';
 import { ExerciseDetail } from './components/ExerciseDetail';
 import { LoadingScreen } from './components/LoadingScreen';
-import { getTokenFromUrl, addTokenToUrl } from './utils/tokenNavigation';
+import { getTokenFromUrl, addTokenToUrl, getPlayerFromUrl, addPlayerToUrl } from './utils/tokenNavigation';
 
 // Admin token - in production, this should be set via environment variable
 const ADMIN_TOKEN = import.meta.env.VITE_ADMIN_TOKEN || 'admin-sequence-2024-secure-token';
 
-// Component to handle token-based routes (automatic login)
+// Component to handle token-based or player name-based routes (automatic login)
 function TokenRoute({ onSetUser, onLogout }: { onSetUser: (user: { id: string; name: string; role: 'admin' | 'user' }) => void; onLogout: () => void }) {
   const location = useLocation();
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<{ id: string; name: string; role: 'admin' | 'user' } | null>(null);
 
   useEffect(() => {
-    // Get token from query parameter
+    // Get token or player name from query parameters
     const searchParams = new URLSearchParams(location.search);
     const token = searchParams.get('token');
+    const playerName = searchParams.get('player');
+    const mode = searchParams.get('mode');
 
     const handleTokenLogin = async (loginToken: string) => {
       setLoading(true);
@@ -50,11 +52,46 @@ function TokenRoute({ onSetUser, onLogout }: { onSetUser: (user: { id: string; n
       }
     };
 
-    if (token) {
+    const handlePlayerLogin = async (name: string) => {
+      setLoading(true);
+      try {
+        // URLSearchParams.get() already decodes the value, so name is already decoded
+        // Encode for API call, but use + for spaces in query parameters
+        const encodedForApi = encodeURIComponent(name).replace(/%20/g, '+');
+        const response = await fetch(`/api/auth/by-name?player=${encodedForApi}`);
+        if (response.ok) {
+          const data = await response.json();
+          const userData = data.user;
+          
+          setUser(userData);
+          onSetUser(userData);
+          // Cache the user to avoid re-authentication
+          (window as any).__cachedUser = userData;
+          
+          // Keep player name in URL - update URL to /user?mode=player&player=Name (spaces as +)
+          const encodedName = encodeURIComponent(name).replace(/%20/g, '+');
+          const newUrl = `/user?mode=player&player=${encodedName}`;
+          window.history.replaceState({}, '', newUrl);
+        } else {
+          // Show error message
+          alert('Invalid login link. Please contact your coach for a new link.');
+        }
+      } catch (err) {
+        console.error('Failed to login:', err);
+        alert('Failed to connect. Please check your internet connection.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (playerName && mode === 'player') {
+      // Player name in URL - use it to login
+      handlePlayerLogin(playerName);
+    } else if (token) {
       // Token in URL - use it to login
       handleTokenLogin(token);
     } else {
-      // No token in URL - show error
+      // No token or player name in URL - show error
       setLoading(false);
     }
   }, [location.search, onSetUser]);
@@ -177,9 +214,17 @@ function RootRoute({ user, onSetUser }: {
 }) {
   const location = useLocation();
 
-  // Check for token in query params - redirect to appropriate route
+  // Check for player name or token in query params - redirect to appropriate route
   const searchParams = new URLSearchParams(location.search);
+  const playerName = searchParams.get('player');
+  const mode = searchParams.get('mode');
   const token = searchParams.get('token');
+  
+  if (playerName && mode === 'player') {
+    // Player name in URL - redirect to login route (spaces as +)
+    const encodedName = encodeURIComponent(playerName).replace(/%20/g, '+');
+    return <Navigate to={`/login?mode=player&player=${encodedName}`} replace />;
+  }
   
   if (token) {
     // Check if it's admin token or user token
@@ -191,11 +236,16 @@ function RootRoute({ user, onSetUser }: {
   }
 
   if (user) {
+    const currentPlayer = getPlayerFromUrl();
     const currentToken = getTokenFromUrl();
     if (user.role === 'admin') {
       return <Navigate to={addTokenToUrl('/admin', currentToken)} replace />;
     } else {
-      return <Navigate to={addTokenToUrl('/user', currentToken)} replace />;
+      if (currentPlayer) {
+        return <Navigate to={addPlayerToUrl('/user', currentPlayer)} replace />;
+      } else {
+        return <Navigate to={addTokenToUrl('/user', currentToken)} replace />;
+      }
     }
   }
 
@@ -209,7 +259,7 @@ function RootRoute({ user, onSetUser }: {
   );
 }
 
-// Protected route wrapper that checks token from URL
+// Protected route wrapper that checks token or player name from URL
 function ProtectedRoute({ 
   children, 
   requiredRole, 
@@ -224,10 +274,13 @@ function ProtectedRoute({
   const location = useLocation();
   const [user, setUser] = useState<{ id: string; name: string; role: 'admin' | 'user' } | null>(null);
   const [loading, setLoading] = useState(true);
+  const searchParams = new URLSearchParams(location.search);
   const token = getTokenFromUrl();
+  const playerName = searchParams.get('player');
+  const mode = searchParams.get('mode');
 
   useEffect(() => {
-    if (!token) {
+    if (!token && !(playerName && mode === 'player')) {
       setLoading(false);
       return;
     }
@@ -248,7 +301,7 @@ function ProtectedRoute({
         return;
       }
 
-      // Check if user token - use cached user if available to avoid re-authentication
+      // Check if user token or player name - use cached user if available to avoid re-authentication
       const cachedUser = (window as any).__cachedUser;
       if (cachedUser && cachedUser.role === 'user') {
         setUser(cachedUser);
@@ -257,36 +310,67 @@ function ProtectedRoute({
         return;
       }
 
-      // Check if user token - only authenticate if we don't have cached user
-      try {
-        const response = await fetch(`/api/auth/login?token=${encodeURIComponent(token)}`);
-        if (response.ok) {
-          const data = await response.json();
-          const userData = data.user;
-          setUser(userData);
-          onSetUser(userData);
-          // Cache the user to avoid re-authentication
-          (window as any).__cachedUser = userData;
+      // Check if player name authentication
+      if (playerName && mode === 'player') {
+        try {
+          // URLSearchParams.get() already decodes the value
+          // Encode for API call, but use + for spaces in query parameters
+          const encodedForApi = encodeURIComponent(playerName).replace(/%20/g, '+');
+          const response = await fetch(`/api/auth/by-name?player=${encodedForApi}`);
+          if (response.ok) {
+            const data = await response.json();
+            const userData = data.user;
+            setUser(userData);
+            onSetUser(userData);
+            // Cache the user to avoid re-authentication
+            (window as any).__cachedUser = userData;
+          }
+        } catch (err) {
+          console.error('Failed to authenticate:', err);
+        } finally {
+          setLoading(false);
         }
-      } catch (err) {
-        console.error('Failed to authenticate:', err);
-      } finally {
-        setLoading(false);
+        return;
+      }
+
+      // Check if user token - only authenticate if we don't have cached user
+      if (token) {
+        try {
+          const response = await fetch(`/api/auth/login?token=${encodeURIComponent(token)}`);
+          if (response.ok) {
+            const data = await response.json();
+            const userData = data.user;
+            setUser(userData);
+            onSetUser(userData);
+            // Cache the user to avoid re-authentication
+            (window as any).__cachedUser = userData;
+          }
+        } catch (err) {
+          console.error('Failed to authenticate:', err);
+        } finally {
+          setLoading(false);
+        }
       }
     };
 
     authenticate();
-  }, [token, onSetUser]); // Removed location dependency to avoid re-auth on navigation
+  }, [token, playerName, mode, onSetUser]); // Removed location dependency to avoid re-auth on navigation
 
   if (loading) {
     return <LoadingScreen />;
   }
 
   if (!user) {
+    if (playerName && mode === 'player') {
+      return <Navigate to={addPlayerToUrl('/', playerName)} replace />;
+    }
     return <Navigate to={addTokenToUrl('/', token)} replace />;
   }
 
   if (requiredRole && user.role !== requiredRole) {
+    if (playerName && mode === 'player') {
+      return <Navigate to={addPlayerToUrl('/', playerName)} replace />;
+    }
     return <Navigate to={addTokenToUrl('/', token)} replace />;
   }
 
@@ -313,11 +397,12 @@ function AppContent() {
   useEffect(() => {
     const cachedUser = (window as any).__cachedUser;
     const token = getTokenFromUrl();
-    if (cachedUser && token) {
-      // Verify token matches cached user
+    const playerName = getPlayerFromUrl();
+    if (cachedUser && (token || playerName)) {
+      // Verify token or player name matches cached user
       if (token === ADMIN_TOKEN && cachedUser.role === 'admin') {
         setUser(cachedUser);
-      } else if (cachedUser.role === 'user') {
+      } else if (cachedUser.role === 'user' && (token || playerName)) {
         setUser(cachedUser);
       }
     }
