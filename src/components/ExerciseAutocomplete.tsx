@@ -9,6 +9,24 @@ interface ExerciseAutocompleteProps {
   className?: string;
 }
 
+// Create or get a dedicated portal container for dropdowns
+function getPortalContainer(): HTMLElement {
+  let container = document.getElementById('exercise-dropdown-portal');
+  if (!container) {
+    container = document.createElement('div');
+    container.id = 'exercise-dropdown-portal';
+    container.style.position = 'fixed';
+    container.style.top = '0';
+    container.style.left = '0';
+    container.style.width = '100%';
+    container.style.height = '100%';
+    container.style.pointerEvents = 'none';
+    container.style.zIndex = '999999';
+    document.body.appendChild(container);
+  }
+  return container;
+}
+
 export function ExerciseAutocomplete({ 
   value, 
   onChange, 
@@ -21,10 +39,18 @@ export function ExerciseAutocomplete({
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0, width: 0 });
   const inputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const portalContainerRef = useRef<HTMLElement | null>(null);
 
   // Load exercises on mount
   useEffect(() => {
     loadExercises();
+  }, []);
+
+  // Get portal container
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      portalContainerRef.current = getPortalContainer();
+    }
   }, []);
 
   // Update dropdown position when opening or input position changes
@@ -115,14 +141,16 @@ export function ExerciseAutocomplete({
     }
   };
 
-  const dropdownContent = open && (
+  const dropdownContent = open && portalContainerRef.current && (
     <div
       ref={dropdownRef}
-      className="fixed z-[99999] bg-zinc-900 border border-zinc-800 rounded-lg shadow-lg max-h-60 overflow-y-auto overscroll-contain"
+      className="bg-zinc-900 border border-zinc-800 rounded-lg shadow-lg max-h-60 overflow-y-auto overscroll-contain"
       style={{ 
+        position: 'fixed',
         top: `${dropdownPosition.top}px`,
         left: `${dropdownPosition.left}px`,
         width: `${dropdownPosition.width}px`,
+        pointerEvents: 'auto',
         scrollbarWidth: 'thin',
         scrollbarColor: '#52525b #18181b'
       }}
@@ -159,7 +187,7 @@ export function ExerciseAutocomplete({
           placeholder={placeholder}
         />
       </div>
-      {typeof document !== 'undefined' && createPortal(dropdownContent, document.body)}
+      {portalContainerRef.current && createPortal(dropdownContent, portalContainerRef.current)}
     </>
   );
 }

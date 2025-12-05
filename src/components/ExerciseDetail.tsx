@@ -220,6 +220,20 @@ export function ExerciseDetail({ userId, onBack }: ExerciseDetailProps) {
     return () => clearTimeout(timer);
   }, [notes, saveNotes, userId, exercise, workoutId]);
 
+  // Auto-save sets when they change (debounced to avoid too many API calls)
+  useEffect(() => {
+    if (!userId || !exercise || !workoutId || sets.length === 0) return;
+    
+    // Debounce saves to avoid too many API calls while user is making changes
+    const timer = setTimeout(() => {
+      saveSets().catch(err => {
+        console.error('Auto-save sets failed:', err);
+      });
+    }, 1000); // 1 second delay for sets (longer than notes since sets change less frequently)
+    
+    return () => clearTimeout(timer);
+  }, [sets, userId, exercise, workoutId]); // Note: saveSets intentionally excluded to avoid dependency loop
+
   // Ensure saves complete before component unmounts (when navigating away)
   useEffect(() => {
     return () => {
@@ -379,20 +393,39 @@ export function ExerciseDetail({ userId, onBack }: ExerciseDetailProps) {
     }
   };
 
-  const addSet = () => {
+  const addSet = async () => {
     const newSetNumber = sets.length + 1;
-    setSets([...sets, {
+    const newSets = [...sets, {
       set: newSetNumber,
       weight: exercise?.weight || '',
       reps: exercise?.reps || '',
       completed: false,
-    }]);
+    }];
+    setSets(newSets);
+    
+    // Save immediately after adding set
+    if (userId && exercise && workoutId) {
+      try {
+        await workoutsApi.saveExerciseSets(workoutId, exercise.id, userId, newSets);
+      } catch (err) {
+        console.error('Error saving sets after adding:', err);
+      }
+    }
   };
 
-  const deleteSet = (setIndex: number) => {
+  const deleteSet = async (setIndex: number) => {
     if (sets.length <= 1) return;
-    const newSets = sets.filter((_, i) => i !== setIndex);
-    setSets(newSets.map((s, i) => ({ ...s, set: i + 1 })));
+    const newSets = sets.filter((_, i) => i !== setIndex).map((s, i) => ({ ...s, set: i + 1 }));
+    setSets(newSets);
+    
+    // Save immediately after deleting set
+    if (userId && exercise && workoutId) {
+      try {
+        await workoutsApi.saveExerciseSets(workoutId, exercise.id, userId, newSets);
+      } catch (err) {
+        console.error('Error saving sets after deleting:', err);
+      }
+    }
   };
 
   const completedCount = sets.filter(s => s.completed).length;
