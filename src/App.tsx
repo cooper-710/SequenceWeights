@@ -79,19 +79,15 @@ function AppContent() {
     window.location.href = '/';
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="text-white">Loading...</div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-black">
       <Routes>
         <Route path="/" element={
-          user ? (
+          loading ? (
+            <div className="min-h-screen bg-black flex items-center justify-center">
+              <div className="text-white">Loading...</div>
+            </div>
+          ) : user ? (
             user.role === 'admin' ? <Navigate to="/admin" /> : <Navigate to={`/${slugifyName(user.name)}`} />
           ) : (
             <LoginScreen onLogin={(user) => {
@@ -109,13 +105,21 @@ function AppContent() {
           user ? <WorkoutViewer userId={user.id} onBack={() => window.history.back()} /> : <Navigate to="/" />
         } />
         <Route path="/exercise/:workoutId/:exerciseName" element={
-          user ? <ExerciseDetail onBack={() => window.history.back()} /> : <Navigate to="/" />
+          user ? <ExerciseDetail userId={user.id} onBack={() => window.history.back()} /> : <Navigate to="/" />
         } />
         <Route path="/user" element={
           user?.role === 'user' ? <UserDashboard user={user} onLogout={handleLogout} /> : <Navigate to="/" />
         } />
         <Route path="/:name" element={
-          user?.role === 'user' ? <UserDashboard user={user} onLogout={handleLogout} /> : <Navigate to="/" />
+          loading ? (
+            <div className="min-h-screen bg-black flex items-center justify-center">
+              <div className="text-white">Loading...</div>
+            </div>
+          ) : user?.role === 'user' ? (
+            <UserDashboard user={user} onLogout={handleLogout} />
+          ) : (
+            <Navigate to="/" />
+          )
         } />
       </Routes>
     </div>

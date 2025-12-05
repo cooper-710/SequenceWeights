@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { ChevronLeft, Check, PlayCircle, XCircle, Plus } from 'lucide-react';
 import sequenceLogo from 'figma:asset/5c2d0c8af8dfc8338b2c35795df688d7811f7b51.png';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import { workoutsApi, exercisesApi, Workout, Exercise as ExerciseLib } from '../utils/api';
 
 interface ExerciseDetailProps {
+  userId: string;
   onBack: () => void;
 }
 
@@ -25,10 +26,9 @@ interface WorkoutExercise {
   videoUrl?: string;
 }
 
-export function ExerciseDetail({ onBack }: ExerciseDetailProps) {
+export function ExerciseDetail({ userId, onBack }: ExerciseDetailProps) {
   const { workoutId, exerciseName } = useParams<{ workoutId: string; exerciseName: string }>();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
   const decodedExerciseName = exerciseName ? decodeURIComponent(exerciseName) : '';
 
   const [workout, setWorkout] = useState<Workout | null>(null);
@@ -39,30 +39,9 @@ export function ExerciseDetail({ onBack }: ExerciseDetailProps) {
   const [activeTab, setActiveTab] = useState<'workout' | 'media'>('workout');
   const [sets, setSets] = useState<SetData[]>([]);
   const [notes, setNotes] = useState<string>('');
-  const [userId, setUserId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [showCelebration, setShowCelebration] = useState(false);
   const [allExercisesCompleted, setAllExercisesCompleted] = useState(false);
-
-  // Load userId from token in URL
-  useEffect(() => {
-    const token = searchParams.get('token');
-    if (token) {
-      fetch(`/api/auth/login?token=${token}`)
-        .then(res => {
-          if (res.ok) {
-            return res.json();
-          }
-          throw new Error('Invalid token');
-        })
-        .then(data => {
-          setUserId(data.user.id);
-        })
-        .catch(err => {
-          console.error('Error validating token:', err);
-        });
-    }
-  }, [searchParams]);
 
   // Fetch workout and exercise data
   useEffect(() => {
