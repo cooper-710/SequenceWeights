@@ -87,7 +87,10 @@ export function UserDashboard({ user, onLogout }: UserDashboardProps) {
       }));
       setWorkouts(scheduledWorkouts);
       
-      // Load completion status for all workouts in parallel (much faster!)
+      // Show calendar immediately - don't wait for completion status
+      setLoading(false);
+      
+      // Load completion status in the background and update as it comes in
       const completionPromises = data.map(async (workout) => {
         try {
           const status = await workoutsApi.getCompletionStatus(workout.id, user.id);
@@ -105,17 +108,17 @@ export function UserDashboard({ user, onLogout }: UserDashboardProps) {
         }
       });
       
-      const completionResults = await Promise.all(completionPromises);
-      const completionStatus: Record<string, boolean> = {};
-      completionResults.forEach(({ workoutId, isCompleted }) => {
-        completionStatus[workoutId] = isCompleted;
-      });
-      
+      // Update completion status as each one finishes (progressive loading)
+      Promise.all(completionPromises).then(completionResults => {
+        const completionStatus: Record<string, boolean> = {};
+        completionResults.forEach(({ workoutId, isCompleted }) => {
+          completionStatus[workoutId] = isCompleted;
+        });
       setWorkoutCompletionStatus(completionStatus);
+      });
     } catch (err) {
       console.error('Failed to load workouts:', err);
       setWorkouts([]);
-    } finally {
       setLoading(false);
     }
   };
@@ -216,11 +219,6 @@ export function UserDashboard({ user, onLogout }: UserDashboardProps) {
       transition={{ duration: 0.4 }}
       className="min-h-screen bg-black"
     >
-      {/* Header */}
-      <div className="bg-gradient-to-b from-black to-black border-b border-[#262626]">
-        {/* Old header removed */}
-      </div>
-
       <div className="max-w-4xl mx-auto px-4 sm:px-6 py-12 overflow-visible">
         <div className="flex items-start mb-12 relative overflow-visible">
           <div className="flex items-center gap-3 sm:gap-6 absolute left-1/2 -translate-x-1/2 w-auto max-w-[calc(100%-120px)] overflow-visible">
