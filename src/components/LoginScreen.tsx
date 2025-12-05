@@ -46,12 +46,16 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
         token, // Keep token for future validation
       };
       
+      // Store token in sessionStorage as fallback for bookmarks
+      sessionStorage.setItem('auth_token', token);
+      
       // Navigate to user dashboard, keeping token in URL for bookmark
       navigate(`/user?token=${token}`, { replace: true });
       
       onLogin(user);
     } catch (err: any) {
       setError(err.message || 'Failed to login with token');
+      sessionStorage.removeItem('auth_token');
     } finally {
       setLoading(false);
     }

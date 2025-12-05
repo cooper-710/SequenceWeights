@@ -17,6 +17,9 @@ function AppContent() {
     const token = searchParams.get('token');
     
     if (token) {
+      // Store token in sessionStorage as fallback for bookmarks
+      sessionStorage.setItem('auth_token', token);
+      
       // Validate token from URL
       fetch(`/api/auth/login?token=${token}`)
         .then(res => {
@@ -30,9 +33,19 @@ function AppContent() {
         })
         .catch(() => {
           setUser(null);
+          sessionStorage.removeItem('auth_token');
         })
         .finally(() => setLoading(false));
     } else {
+      // No token in URL - check sessionStorage as fallback
+      const storedToken = sessionStorage.getItem('auth_token');
+      if (storedToken) {
+        // Redirect to current URL with token
+        const currentUrl = new URL(window.location.href);
+        currentUrl.searchParams.set('token', storedToken);
+        window.location.href = currentUrl.toString();
+        return;
+      }
       // No token - user must be admin or not logged in
       setLoading(false);
     }
@@ -40,6 +53,7 @@ function AppContent() {
 
   const handleLogout = () => {
     setUser(null);
+    sessionStorage.removeItem('auth_token');
     // Navigate to home without token
     window.location.href = '/';
   };
