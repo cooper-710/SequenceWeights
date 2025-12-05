@@ -86,9 +86,8 @@ export function UserDashboard({ user, onLogout }: UserDashboardProps) {
       }));
       setWorkouts(scheduledWorkouts);
       
-      // Load completion status for all workouts
-      const completionStatus: Record<string, boolean> = {};
-      for (const workout of data) {
+      // Load completion status for all workouts in parallel (much faster!)
+      const completionPromises = data.map(async (workout) => {
         try {
           const status = await workoutsApi.getCompletionStatus(workout.id, user.id);
           // Check if all exercises are completed
@@ -98,12 +97,19 @@ export function UserDashboard({ user, onLogout }: UserDashboardProps) {
             const exerciseStatus = status[exerciseName];
             return exerciseStatus?.status === 'completed';
           });
-          completionStatus[workout.id] = isCompleted;
+          return { workoutId: workout.id, isCompleted };
         } catch (err) {
           console.error(`Failed to load completion status for workout ${workout.id}:`, err);
-          completionStatus[workout.id] = false;
+          return { workoutId: workout.id, isCompleted: false };
         }
-      }
+      });
+      
+      const completionResults = await Promise.all(completionPromises);
+      const completionStatus: Record<string, boolean> = {};
+      completionResults.forEach(({ workoutId, isCompleted }) => {
+        completionStatus[workoutId] = isCompleted;
+      });
+      
       setWorkoutCompletionStatus(completionStatus);
     } catch (err) {
       console.error('Failed to load workouts:', err);

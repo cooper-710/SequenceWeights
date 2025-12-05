@@ -31,6 +31,8 @@ function TokenRoute({ onSetUser, onLogout }: { onSetUser: (user: { id: string; n
           // Don't store anything - just use token from URL
           setUser(userData);
           onSetUser(userData);
+          // Cache the user to avoid re-authentication
+          (window as any).__cachedUser = userData;
           
           // Keep token in URL - update URL to /login?token=xxx (or /user?token=xxx)
           const newUrl = addTokenToUrl('/user', loginToken);
@@ -59,6 +61,7 @@ function TokenRoute({ onSetUser, onLogout }: { onSetUser: (user: { id: string; n
   const handleLogout = () => {
     setUser(null);
     onSetUser(null);
+    (window as any).__cachedUser = null;
     onLogout();
   };
 
@@ -113,6 +116,8 @@ function AdminTokenRoute({ onSetUser, onLogout, parentUser }: {
         // Don't store anything - just use token from URL
         setUser(adminUser);
         onSetUser(adminUser);
+        // Cache the user to avoid re-authentication
+        (window as any).__cachedUser = adminUser;
         
         // Keep token in URL
         const newUrl = addTokenToUrl('/admin', adminToken);
@@ -146,6 +151,7 @@ function AdminTokenRoute({ onSetUser, onLogout, parentUser }: {
   const handleLogout = () => {
     setUser(null);
     onSetUser(null);
+    (window as any).__cachedUser = null;
     onLogout();
   };
 
@@ -243,11 +249,22 @@ function ProtectedRoute({
         };
         setUser(adminUser);
         onSetUser(adminUser);
+        // Cache the user to avoid re-authentication
+        (window as any).__cachedUser = adminUser;
         setLoading(false);
         return;
       }
 
-      // Check if user token
+      // Check if user token - use cached user if available to avoid re-authentication
+      const cachedUser = (window as any).__cachedUser;
+      if (cachedUser && cachedUser.role === 'user') {
+        setUser(cachedUser);
+        onSetUser(cachedUser);
+        setLoading(false);
+        return;
+      }
+
+      // Check if user token - only authenticate if we don't have cached user
       try {
         const response = await fetch(`/api/auth/login?token=${encodeURIComponent(token)}`);
         if (response.ok) {
@@ -255,6 +272,8 @@ function ProtectedRoute({
           const userData = data.user;
           setUser(userData);
           onSetUser(userData);
+          // Cache the user to avoid re-authentication
+          (window as any).__cachedUser = userData;
         }
       } catch (err) {
         console.error('Failed to authenticate:', err);
@@ -264,7 +283,7 @@ function ProtectedRoute({
     };
 
     authenticate();
-  }, [token, onSetUser]);
+  }, [token, onSetUser]); // Removed location dependency to avoid re-auth on navigation
 
   if (loading) {
     return (
@@ -294,11 +313,30 @@ function AppContent() {
   const [loading, setLoading] = useState(false);
   const location = useLocation();
 
-  // No storage check - user state is managed by route components based on URL token
-  // Set loading to false immediately since we don't check storage
+  // Cache user state to avoid re-authentication
+  useEffect(() => {
+    if (user) {
+      (window as any).__cachedUser = user;
+    }
+  }, [user]);
+
+  // Try to restore user from cache on mount
+  useEffect(() => {
+    const cachedUser = (window as any).__cachedUser;
+    const token = getTokenFromUrl();
+    if (cachedUser && token) {
+      // Verify token matches cached user
+      if (token === ADMIN_TOKEN && cachedUser.role === 'admin') {
+        setUser(cachedUser);
+      } else if (cachedUser.role === 'user') {
+        setUser(cachedUser);
+      }
+    }
+  }, []);
 
   const handleLogout = () => {
     setUser(null);
+    (window as any).__cachedUser = null;
     window.location.href = '/';
   };
 

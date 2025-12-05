@@ -130,44 +130,8 @@ export function WorkoutViewer({ userId, onBack }: WorkoutViewerProps) {
   }, [workoutId, userId, loadCompletionStatus]);
 
   // Reload completion status when navigating back to workout (location change)
-  useEffect(() => {
-    if (workoutId && userId && location.pathname.startsWith('/workout/')) {
-      // Check if we have state data first
-      const locationState = location.state as { completionStatus?: typeof completionStatus } | null;
-      if (!locationState?.completionStatus) {
-        // Add a small delay to ensure backend has processed any recent saves
-        const timer = setTimeout(() => {
-          loadCompletionStatus();
-        }, 200);
-        return () => clearTimeout(timer);
-      }
-    }
-  }, [location.pathname, workoutId, userId, loadCompletionStatus]);
-
-  // Reload completion status when page becomes visible (user returns from exercise or refreshes)
-  useEffect(() => {
-    if (!workoutId || !userId) return;
-
-    // Reload when page becomes visible (handles tab switching and navigation back)
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        loadCompletionStatus();
-      }
-    };
-
-    // Reload when window gains focus (handles navigation back)
-    const handleFocus = () => {
-      loadCompletionStatus();
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('focus', handleFocus);
-
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('focus', handleFocus);
-    };
-  }, [workoutId, userId, loadCompletionStatus]);
+  // Removed visibility change and focus listeners - they cause unnecessary re-fetches
+  // The completion status will be refreshed when navigating back naturally
 
 
   const getBlockColor = (index: number) => {
