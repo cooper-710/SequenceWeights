@@ -60,14 +60,11 @@ export function AthleteManager({ onSelectAthlete }: AthleteManagerProps) {
   const getLoginLink = (athlete: Athlete) => {
     if (!athlete.loginToken) return '';
     
-    // In production, use the production URL from environment variable
-    // In development, use current origin
-    const baseUrl = import.meta.env.PROD 
-      ? (import.meta.env.VITE_APP_URL || 'https://sequence-weights-git-main-cooper-710s-projects.vercel.app')
-      : window.location.origin;
+    // Always use current origin - works in both dev and production
+    const baseUrl = window.location.origin;
     
-    // Use the login token for the link
-    return `${baseUrl}/login/${athlete.loginToken}`;
+    // Use query parameter instead of path parameter
+    return `${baseUrl}/login?token=${athlete.loginToken}`;
   };
 
   const handleCopyLink = (link: string, athleteId: string, e?: React.MouseEvent) => {

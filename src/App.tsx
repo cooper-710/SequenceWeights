@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useLocation, useParams } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AdminDashboard } from './components/AdminDashboard';
 import { UserDashboard } from './components/UserDashboard';
 import { WorkoutViewer } from './components/WorkoutViewer';
@@ -56,11 +56,15 @@ const storage = {
 
 // Component to handle token-based routes (automatic login)
 function TokenRoute({ onSetUser, onLogout }: { onSetUser: (user: { id: string; name: string; role: 'admin' | 'user' }) => void; onLogout: () => void }) {
-  const { token } = useParams<{ token: string }>();
+  const location = useLocation();
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<{ id: string; name: string; role: 'admin' | 'user' } | null>(null);
 
   useEffect(() => {
+    // Get token from query parameter
+    const searchParams = new URLSearchParams(location.search);
+    const token = searchParams.get('token');
+
     const handleTokenLogin = async (loginToken: string) => {
       setLoading(true);
       try {
@@ -75,6 +79,9 @@ function TokenRoute({ onSetUser, onLogout }: { onSetUser: (user: { id: string; n
           
           setUser(userData);
           onSetUser(userData);
+          
+          // Remove token from URL after successful login
+          window.history.replaceState({}, '', '/user');
         } else {
           // Clear invalid token
           storage.removeItem(STORAGE_TOKEN_KEY);
@@ -108,7 +115,7 @@ function TokenRoute({ onSetUser, onLogout }: { onSetUser: (user: { id: string; n
         setLoading(false);
       }
     }
-  }, [token, onSetUser]);
+  }, [location.search, onSetUser]);
 
   const handleLogout = () => {
     storage.removeItem(STORAGE_TOKEN_KEY);
@@ -143,11 +150,14 @@ function TokenRoute({ onSetUser, onLogout }: { onSetUser: (user: { id: string; n
 
 // Component to handle admin token-based routes
 function AdminTokenRoute({ onSetUser, onLogout }: { onSetUser: (user: { id: string; name: string; role: 'admin' | 'user' }) => void; onLogout: () => void }) {
-  const { token } = useParams<{ token: string }>();
+  const location = useLocation();
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<{ id: string; name: string; role: 'admin' | 'user' } | null>(null);
 
   useEffect(() => {
+    const searchParams = new URLSearchParams(location.search);
+    const token = searchParams.get('token');
+
     const handleAdminLogin = (adminToken: string) => {
       setLoading(true);
       
@@ -165,6 +175,9 @@ function AdminTokenRoute({ onSetUser, onLogout }: { onSetUser: (user: { id: stri
         
         setUser(adminUser);
         onSetUser(adminUser);
+        
+        // Remove token from URL
+        window.history.replaceState({}, '', '/admin');
       } else {
         storage.removeItem(STORAGE_ADMIN_TOKEN_KEY);
         storage.removeItem(STORAGE_ADMIN_USER_KEY);
@@ -189,7 +202,7 @@ function AdminTokenRoute({ onSetUser, onLogout }: { onSetUser: (user: { id: stri
         setLoading(false);
       }
     }
-  }, [token, onSetUser]);
+  }, [location.search, onSetUser]);
 
   const handleLogout = () => {
     storage.removeItem(STORAGE_ADMIN_TOKEN_KEY);
@@ -296,9 +309,8 @@ function AppContent() {
           )
         } />
         
-        {/* Token-based login routes - must come before catch-all routes */}
-        <Route path="/login/:token" element={<TokenRoute onSetUser={setUser} onLogout={handleLogout} />} />
-        <Route path="/admin/:token" element={<AdminTokenRoute onSetUser={setUser} onLogout={handleLogout} />} />
+        {/* Token-based login routes - use query parameters */}
+        <Route path="/login" element={<TokenRoute onSetUser={setUser} onLogout={handleLogout} />} />
         
         {/* Workout route - requires user */}
         <Route path="/workout/:workoutId" element={
@@ -327,19 +339,8 @@ function AppContent() {
           )
         } />
         
-        {/* Admin route - catch-all must come after specific routes */}
-        <Route path="/admin/*" element={
-          user?.role === 'admin' ? (
-            <AdminDashboard user={user} onLogout={handleLogout} />
-          ) : (
-            <div className="min-h-screen bg-black flex items-center justify-center px-4">
-              <div className="text-center">
-                <h1 className="text-white text-2xl mb-4">Admin Access Required</h1>
-                <p className="text-gray-400">Please use the admin login link.</p>
-              </div>
-            </div>
-          )
-        } />
+        {/* Admin route - handles both token login and dashboard */}
+        <Route path="/admin" element={<AdminTokenRoute onSetUser={setUser} onLogout={handleLogout} />} />
       </Routes>
     </div>
   );
