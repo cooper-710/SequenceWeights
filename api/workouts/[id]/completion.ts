@@ -46,10 +46,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (exercisesError) throw exercisesError;
 
       for (const exercise of exercises || []) {
-        // Get ALL sets (not just completed) to find the actual total
+        // Get ALL sets (not just completed) to find the actual total and reps
         const { data: allSetsData, error: setsError } = await supabase
           .from('exercise_sets')
-          .select('set_number')
+          .select('set_number, reps')
           .eq('block_exercise_id', exercise.id)
           .eq('workout_id', workoutId)
           .eq('athlete_id', athleteId);
@@ -74,6 +74,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const totalSets = Math.max(exercise.sets, maxSavedSetNumber);
         const completedCount = completedSetsData?.length || 0;
 
+        // Check if reps vary across sets
+        const repsValues = allSetsData
+          ?.map((s: any) => s.reps?.trim())
+          .filter((r: string) => r && r !== '' && r !== '--')
+          .map((r: string) => {
+            const parsed = parseInt(r);
+            return isNaN(parsed) ? null : parsed;
+          })
+          .filter((r: number | null) => r !== null) as number[] || [];
+        
+        const uniqueReps = [...new Set(repsValues)];
+        const repsVary = uniqueReps.length > 1;
+        const commonReps = repsVary ? null : (repsValues[0]?.toString() || exercise.reps);
+        const minReps = repsValues.length > 0 ? Math.min(...repsValues) : null;
+        const maxReps = repsValues.length > 0 ? Math.max(...repsValues) : null;
+
         let status: 'completed' | 'in-progress' | 'not-started' = 'not-started';
         if (completedCount === totalSets && totalSets > 0) {
           status = 'completed';
@@ -85,6 +101,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           status,
           completedSets: completedCount,
           totalSets,
+          repsVary,
+          commonReps: commonReps || exercise.reps,
+          minReps,
+          maxReps,
         };
       }
     }

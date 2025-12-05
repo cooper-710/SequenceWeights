@@ -42,7 +42,15 @@ export function WorkoutViewer({ userId, onBack }: WorkoutViewerProps) {
   const [workout, setWorkout] = useState<Workout | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [completionStatus, setCompletionStatus] = useState<Record<string, { status: 'completed' | 'in-progress' | 'not-started'; completedSets: number; totalSets: number }>>({});
+  const [completionStatus, setCompletionStatus] = useState<Record<string, { 
+    status: 'completed' | 'in-progress' | 'not-started'; 
+    completedSets: number; 
+    totalSets: number;
+    repsVary?: boolean;
+    commonReps?: string;
+    minReps?: number;
+    maxReps?: number;
+  }>>({});
 
   const loadCompletionStatus = useCallback(async () => {
     if (!workoutId || !userId) return;
@@ -167,10 +175,23 @@ export function WorkoutViewer({ userId, onBack }: WorkoutViewerProps) {
     return <Circle className="w-5 h-5 text-gray-600" />;
   };
 
-  const formatSetsReps = (exercise: Exercise) => {
-    if (!exercise.sets && !exercise.reps) return '';
-    if (!exercise.reps) return `${exercise.sets} set${exercise.sets !== 1 ? 's' : ''}`;
-    return `${exercise.sets} x ${exercise.reps}`;
+  const formatSetsReps = (exercise: Exercise, statusData?: { 
+    totalSets?: number; 
+    repsVary?: boolean; 
+    commonReps?: string; 
+    minReps?: number; 
+    maxReps?: number;
+  }) => {
+    const setsToShow = statusData?.totalSets || exercise.sets;
+    const repsToShow = statusData?.repsVary 
+      ? (statusData.minReps && statusData.maxReps && statusData.minReps !== statusData.maxReps
+          ? `${statusData.minReps}-${statusData.maxReps}`
+          : 'varies')
+      : (statusData?.commonReps || exercise.reps);
+    
+    if (!setsToShow && !repsToShow) return '';
+    if (!repsToShow) return `${setsToShow} set${setsToShow !== 1 ? 's' : ''}`;
+    return `${setsToShow} x ${repsToShow}`;
   };
 
   if (loading) {
@@ -331,7 +352,7 @@ export function WorkoutViewer({ userId, onBack }: WorkoutViewerProps) {
                             {exercise.exerciseName}
                           </h3>
                           <p className="text-gray-500 text-sm">
-                            {formatSetsReps(exercise)}
+                            {formatSetsReps(exercise, statusData)}
                             {exercise.weight && ` @ ${exercise.weight}`}
                           </p>
                         </div>
