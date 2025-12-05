@@ -8,6 +8,11 @@ import { ExerciseDetail } from './components/ExerciseDetail';
 // Storage keys
 const STORAGE_TOKEN_KEY = 'athlete_login_token';
 const STORAGE_USER_KEY = 'athlete_user';
+const STORAGE_ADMIN_TOKEN_KEY = 'admin_login_token';
+const STORAGE_ADMIN_USER_KEY = 'admin_user';
+
+// Admin token - in production, this should be set via environment variable
+const ADMIN_TOKEN = import.meta.env.VITE_ADMIN_TOKEN || 'admin-sequence-2024-secure-token';
 
 // Helper to safely use localStorage with fallback to sessionStorage
 const storage = {
@@ -136,13 +141,111 @@ function TokenRoute({ onSetUser, onLogout }: { onSetUser: (user: { id: string; n
   );
 }
 
+// Component to handle admin token-based routes
+function AdminTokenRoute({ onSetUser, onLogout }: { onSetUser: (user: { id: string; name: string; role: 'admin' | 'user' }) => void; onLogout: () => void }) {
+  const { token } = useParams<{ token: string }>();
+  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<{ id: string; name: string; role: 'admin' | 'user' } | null>(null);
+
+  useEffect(() => {
+    const handleAdminLogin = (adminToken: string) => {
+      setLoading(true);
+      
+      // Check if token matches admin token
+      if (adminToken === ADMIN_TOKEN) {
+        const adminUser = {
+          id: 'admin-1',
+          name: 'Admin User',
+          role: 'admin' as const,
+        };
+        
+        // Store admin token and user
+        storage.setItem(STORAGE_ADMIN_TOKEN_KEY, adminToken);
+        storage.setItem(STORAGE_ADMIN_USER_KEY, JSON.stringify(adminUser));
+        
+        setUser(adminUser);
+        onSetUser(adminUser);
+      } else {
+        storage.removeItem(STORAGE_ADMIN_TOKEN_KEY);
+        storage.removeItem(STORAGE_ADMIN_USER_KEY);
+        alert('Invalid admin token. Please use the correct admin link.');
+      }
+      
+      setLoading(false);
+    };
+
+    if (token) {
+      // Token in URL - validate it
+      handleAdminLogin(token);
+    } else {
+      // No token in URL - check storage
+      const storedToken = storage.getItem(STORAGE_ADMIN_TOKEN_KEY) || sessionStorage.getItem(STORAGE_ADMIN_TOKEN_KEY);
+      const storedUser = storage.getItem(STORAGE_ADMIN_USER_KEY) || sessionStorage.getItem(STORAGE_ADMIN_USER_KEY);
+      
+      if (storedToken && storedUser) {
+        // Validate stored token
+        handleAdminLogin(storedToken);
+      } else {
+        setLoading(false);
+      }
+    }
+  }, [token, onSetUser]);
+
+  const handleLogout = () => {
+    storage.removeItem(STORAGE_ADMIN_TOKEN_KEY);
+    storage.removeItem(STORAGE_ADMIN_USER_KEY);
+    setUser(null);
+    onSetUser(null);
+    onLogout();
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="text-white">Loading...</div>
+      </div>
+    );
+  }
+
+  if (user?.role === 'admin') {
+    return <AdminDashboard user={user} onLogout={handleLogout} />;
+  }
+
+  return (
+    <div className="min-h-screen bg-black flex items-center justify-center px-4">
+      <div className="text-center">
+        <h1 className="text-white text-2xl mb-4">Invalid Admin Token</h1>
+        <p className="text-gray-400">Please use the correct admin login link.</p>
+      </div>
+    </div>
+  );
+}
+
 function AppContent() {
   const [user, setUser] = useState<{ id: string; name: string; role: 'admin' | 'user' } | null>(null);
   const [loading, setLoading] = useState(true);
   const location = useLocation();
 
-  // On mount, check localStorage for existing user
+  // On mount, check localStorage for existing user (check admin first, then regular user)
   useEffect(() => {
+    // Check for admin first
+    const adminToken = storage.getItem(STORAGE_ADMIN_TOKEN_KEY) || sessionStorage.getItem(STORAGE_ADMIN_TOKEN_KEY);
+    const adminUser = storage.getItem(STORAGE_ADMIN_USER_KEY) || sessionStorage.getItem(STORAGE_ADMIN_USER_KEY);
+    
+    if (adminToken && adminUser && adminToken === ADMIN_TOKEN) {
+      try {
+        const userData = JSON.parse(adminUser);
+        setUser(userData);
+        setLoading(false);
+        return;
+      } catch (err) {
+        console.error('Failed to parse stored admin user:', err);
+        storage.removeItem(STORAGE_ADMIN_TOKEN_KEY);
+        storage.removeItem(STORAGE_ADMIN_USER_KEY);
+      }
+    }
+    
+    // Check for regular user
     const storedToken = storage.getItem(STORAGE_TOKEN_KEY) || sessionStorage.getItem(STORAGE_TOKEN_KEY);
     const storedUser = storage.getItem(STORAGE_USER_KEY) || sessionStorage.getItem(STORAGE_USER_KEY);
     
@@ -162,6 +265,8 @@ function AppContent() {
   const handleLogout = () => {
     storage.removeItem(STORAGE_TOKEN_KEY);
     storage.removeItem(STORAGE_USER_KEY);
+    storage.removeItem(STORAGE_ADMIN_TOKEN_KEY);
+    storage.removeItem(STORAGE_ADMIN_USER_KEY);
     setUser(null);
     window.location.href = '/';
   };
@@ -234,6 +339,9 @@ function AppContent() {
         
         {/* Token-based login route - this is the main entry point for athletes */}
         <Route path="/login/:token" element={<TokenRoute onSetUser={setUser} onLogout={handleLogout} />} />
+        
+        {/* Admin token-based login route */}
+        <Route path="/admin/:token" element={<AdminTokenRoute onSetUser={setUser} onLogout={handleLogout} />} />
       </Routes>
     </div>
   );
