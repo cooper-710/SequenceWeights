@@ -541,8 +541,8 @@ export function ExerciseDetail({ userId, onBack }: ExerciseDetailProps) {
   return (
     <div className="min-h-screen bg-black pb-24">
       {/* Header */}
-      <div className="bg-black border-b border-[#F56E0F]/20 shadow-lg shadow-black/20 overflow-visible">
-        <div className="max-w-3xl mx-auto px-4 pt-12 pb-4 overflow-visible">
+      <div className="bg-black border-b border-[#F56E0F]/20 shadow-lg shadow-black/20 overflow-visible pt-[env(safe-area-inset-top,0px)]">
+        <div className="max-w-3xl mx-auto px-4 pt-4 pb-4 overflow-visible">
           <div className="flex items-start mb-6 relative overflow-visible">
             <button 
               onClick={async () => {

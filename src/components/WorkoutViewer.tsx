@@ -237,8 +237,8 @@ export function WorkoutViewer({ userId, onBack }: WorkoutViewerProps) {
       className="h-screen bg-black flex flex-col overflow-hidden"
     >
       {/* Header */}
-      <div className="bg-black border-b border-[#F56E0F]/20 shadow-lg shadow-black/20 flex-shrink-0 overflow-visible">
-        <div className="max-w-3xl mx-auto px-4 pt-12 pb-4 overflow-visible">
+      <div className="bg-black border-b border-[#F56E0F]/20 shadow-lg shadow-black/20 flex-shrink-0 overflow-visible pt-[env(safe-area-inset-top,0px)]">
+        <div className="max-w-3xl mx-auto px-4 pt-4 pb-4 overflow-visible">
           <div className="flex items-start mb-6 relative overflow-visible">
             <button 
               onClick={() => {
