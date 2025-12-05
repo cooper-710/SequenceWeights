@@ -12,8 +12,34 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const { id: workoutId, slug } = req.query;
   
   // Parse slug from Vercel's catch-all route
-  // slug is an array like ['completion'] or ['exercises', 'exerciseId', 'sets']
-  const slugArray = Array.isArray(slug) ? slug : slug ? [slug] : [];
+  // In Vercel, slug can be a string or array depending on the route
+  let slugArray: string[] = [];
+  
+  if (Array.isArray(slug)) {
+    slugArray = slug;
+  } else if (typeof slug === 'string') {
+    slugArray = slug.split('/').filter(s => s);
+  } else if (req.url) {
+    // Fallback: parse from URL if slug is not provided in query params
+    // In Vercel, req.url is the full path like /api/workouts/{id}/completion
+    const urlPath = req.url.split('?')[0]; // Remove query string
+    const parts = urlPath.split('/').filter(p => p);
+    
+    // Find where 'workouts' appears in the path
+    const workoutsIndex = parts.indexOf('workouts');
+    if (workoutsIndex >= 0 && parts.length > workoutsIndex + 2) {
+      // After 'workouts' comes the workoutId, then the slug segments
+      // parts = ['api', 'workouts', '1764906114647', 'completion']
+      // We want: ['completion']
+      slugArray = parts.slice(workoutsIndex + 2);
+    } else if (parts.length > 2 && parts[0] === 'api' && parts[1] === 'workouts') {
+      // Alternative: if workouts not found but we have api/workouts pattern
+      // parts = ['api', 'workouts', '1764906114647', 'completion']
+      slugArray = parts.slice(3); // Skip 'api', 'workouts', and workoutId
+    }
+  }
+  
+  console.log('Parsed slug array:', slugArray, 'from query:', slug, 'from URL:', req.url);
   
   // Determine which route we're handling based on path segments
   const isCompletion = slugArray[0] === 'completion';
@@ -30,6 +56,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   
   // If no slug segments, this shouldn't match - return 404
   if (slugArray.length === 0) {
+    console.error('No slug segments found. URL:', req.url, 'Query:', req.query);
     return res.status(404).json({ error: 'Route not found - no path segments' });
   }
 

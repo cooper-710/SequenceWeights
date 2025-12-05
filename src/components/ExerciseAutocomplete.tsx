@@ -142,20 +142,37 @@ export function ExerciseAutocomplete({
   };
 
   const dropdownContent = open && portalContainerRef.current && (
-    <div
-      ref={dropdownRef}
-      className="bg-zinc-900 border border-zinc-800 rounded-lg shadow-lg overflow-y-auto"
-      style={{ 
-        position: 'fixed',
-        top: `${dropdownPosition.top}px`,
-        left: `${dropdownPosition.left}px`,
-        width: `${dropdownPosition.width}px`,
-        maxHeight: '320px', // Approximately 8 items (40px per item)
-        pointerEvents: 'auto',
-        scrollbarWidth: 'thin',
-        scrollbarColor: '#52525b #18181b'
-      }}
-    >
+    <>
+      <style>{`
+        #exercise-dropdown-portal > div::-webkit-scrollbar {
+          width: 8px;
+        }
+        #exercise-dropdown-portal > div::-webkit-scrollbar-track {
+          background: #18181b;
+          border-radius: 4px;
+        }
+        #exercise-dropdown-portal > div::-webkit-scrollbar-thumb {
+          background: #52525b;
+          border-radius: 4px;
+        }
+        #exercise-dropdown-portal > div::-webkit-scrollbar-thumb:hover {
+          background: #71717a;
+        }
+      `}</style>
+      <div
+        ref={dropdownRef}
+        className="bg-zinc-900 border border-zinc-800 rounded-lg shadow-lg overflow-y-auto"
+        style={{ 
+          position: 'fixed',
+          top: `${dropdownPosition.top}px`,
+          left: `${dropdownPosition.left}px`,
+          width: `${dropdownPosition.width}px`,
+          maxHeight: '320px', // Approximately 8 items (40px per item)
+          pointerEvents: 'auto',
+          scrollbarWidth: 'thin',
+          scrollbarColor: '#52525b #18181b'
+        }}
+      >
       {loading ? (
         <div className="py-6 text-center text-sm text-gray-400">Loading exercises...</div>
       ) : filteredExercises.length === 0 ? (
@@ -172,7 +189,8 @@ export function ExerciseAutocomplete({
           </button>
         ))
       )}
-    </div>
+      </div>
+    </>
   );
 
   return (
