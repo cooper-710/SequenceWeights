@@ -118,7 +118,7 @@ export function ExerciseAutocomplete({
   const dropdownContent = open && (
     <div
       ref={dropdownRef}
-      className="fixed z-[9999] bg-zinc-900 border border-zinc-800 rounded-lg shadow-lg max-h-60 overflow-y-auto overscroll-contain"
+      className="fixed z-[99999] bg-zinc-900 border border-zinc-800 rounded-lg shadow-lg max-h-60 overflow-y-auto overscroll-contain"
       style={{ 
         top: `${dropdownPosition.top}px`,
         left: `${dropdownPosition.left}px`,
