@@ -87,21 +87,44 @@ export function WorkoutViewer({ userId, onBack }: WorkoutViewerProps) {
     }
   }, [workoutId, loadWorkout]);
 
+  // Check for completion status passed via navigation state (prevents flash of stale data)
+  useEffect(() => {
+    const locationState = location.state as { completionStatus?: typeof completionStatus } | null;
+    if (locationState?.completionStatus) {
+      // Use the passed status immediately (no flash!)
+      setCompletionStatus(locationState.completionStatus);
+      // Then refresh in background to ensure it's up to date
+      setTimeout(() => {
+        loadCompletionStatus();
+      }, 300);
+      // Clear the state so it doesn't persist on next navigation
+      window.history.replaceState({ ...locationState, completionStatus: undefined }, '');
+    }
+  }, [location.state]);
+
   // Load completion status when workoutId or userId changes
   useEffect(() => {
     if (workoutId && userId) {
-      loadCompletionStatus();
+      // Only load if we don't have state data (to avoid double loading)
+      const locationState = location.state as { completionStatus?: typeof completionStatus } | null;
+      if (!locationState?.completionStatus) {
+        loadCompletionStatus();
+      }
     }
   }, [workoutId, userId, loadCompletionStatus]);
 
   // Reload completion status when navigating back to workout (location change)
   useEffect(() => {
     if (workoutId && userId && location.pathname.startsWith('/workout/')) {
-      // Add a small delay to ensure backend has processed any recent saves
-      const timer = setTimeout(() => {
-        loadCompletionStatus();
-      }, 200);
-      return () => clearTimeout(timer);
+      // Check if we have state data first
+      const locationState = location.state as { completionStatus?: typeof completionStatus } | null;
+      if (!locationState?.completionStatus) {
+        // Add a small delay to ensure backend has processed any recent saves
+        const timer = setTimeout(() => {
+          loadCompletionStatus();
+        }, 200);
+        return () => clearTimeout(timer);
+      }
     }
   }, [location.pathname, workoutId, userId, loadCompletionStatus]);
 
