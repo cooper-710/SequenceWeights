@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Plus, Search, Mail, UserCircle, Copy, Check, Trash2 } from 'lucide-react';
 import { athletesApi, Athlete } from '../utils/api';
+import { slugifyName } from '../utils/nameUtils';
 
 interface AthleteManagerProps {
   onSelectAthlete: (athlete: Athlete) => void;
@@ -58,8 +59,7 @@ export function AthleteManager({ onSelectAthlete }: AthleteManagerProps) {
   };
 
   const getLoginLink = (athlete: Athlete) => {
-    const token = athlete.loginToken || (athlete as any).login_token;
-    if (!token) return '';
+    if (!athlete.name) return '';
     
     // In production, use the production URL from environment variable
     // In development, use current origin
@@ -67,7 +67,8 @@ export function AthleteManager({ onSelectAthlete }: AthleteManagerProps) {
       ? (import.meta.env.VITE_APP_URL || 'https://sequence-weights-git-main-cooper-710s-projects.vercel.app')
       : window.location.origin;
     
-    return `${baseUrl}/?token=${token}`;
+    const nameSlug = slugifyName(athlete.name);
+    return `${baseUrl}/${nameSlug}`;
   };
 
   const handleCopyLink = (link: string, athleteId: string, e?: React.MouseEvent) => {
@@ -188,7 +189,7 @@ export function AthleteManager({ onSelectAthlete }: AthleteManagerProps) {
                           handleCopyLink(loginLink, athlete.id, e);
                         } else {
                           e.stopPropagation();
-                          alert('No login token available for this athlete. Please refresh or contact support.');
+                          alert('No name available for this athlete. Please refresh or contact support.');
                         }
                       }}
                       disabled={isCopied || !loginLink}
@@ -201,7 +202,7 @@ export function AthleteManager({ onSelectAthlete }: AthleteManagerProps) {
                             : 'bg-zinc-800/50 text-gray-500 border border-zinc-700/50 cursor-not-allowed opacity-50'
                         }
                       `}
-                      title={loginLink ? "Copy login link" : "No login token available"}
+                      title={loginLink ? "Copy login link" : "No name available"}
                     >
                       {isCopied ? (
                         <>
@@ -289,7 +290,7 @@ export function AthleteManager({ onSelectAthlete }: AthleteManagerProps) {
       )}
 
       {/* Login Link Modal */}
-      {createdAthlete && createdAthlete.loginToken && (
+      {createdAthlete && createdAthlete.name && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
           <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-6 w-full max-w-md">
             <h3 className="text-white text-xl mb-4">Athlete Created Successfully!</h3>

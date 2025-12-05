@@ -1,10 +1,9 @@
-import { useState, useEffect } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useState } from 'react';
 import sequenceLogo from 'figma:asset/5c2d0c8af8dfc8338b2c35795df688d7811f7b51.png';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 
 interface LoginScreenProps {
-  onLogin: (user: { id: string; name: string; role: 'admin' | 'user'; token?: string }) => void;
+  onLogin: (user: { id: string; name: string; role: 'admin' | 'user' }) => void;
 }
 
 export function LoginScreen({ onLogin }: LoginScreenProps) {
@@ -12,54 +11,6 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [searchParams] = useSearchParams();
-  const navigate = useNavigate();
-
-  // Check for token in URL and auto-login
-  useEffect(() => {
-    const token = searchParams.get('token');
-    if (token) {
-      handleTokenLogin(token);
-    }
-  }, [searchParams]);
-
-  const handleTokenLogin = async (token: string) => {
-    setLoading(true);
-    setError(null);
-    
-    try {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ token }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Invalid login token');
-      }
-
-      const data = await response.json();
-      const user = {
-        ...data.user,
-        token, // Keep token for future validation
-      };
-      
-      // Store token in sessionStorage as fallback for bookmarks
-      sessionStorage.setItem('auth_token', token);
-      
-      // Navigate to user dashboard, keeping token in URL for bookmark
-      navigate(`/user?token=${token}`, { replace: true });
-      
-      onLogin(user);
-    } catch (err: any) {
-      setError(err.message || 'Failed to login with token');
-      sessionStorage.removeItem('auth_token');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();

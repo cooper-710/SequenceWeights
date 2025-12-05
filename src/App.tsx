@@ -1,67 +1,82 @@
 import { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useSearchParams, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AdminDashboard } from './components/AdminDashboard';
 import { UserDashboard } from './components/UserDashboard';
 import { WorkoutViewer } from './components/WorkoutViewer';
 import { ExerciseDetail } from './components/ExerciseDetail';
 import { LoginScreen } from './components/LoginScreen';
+import { slugifyName } from './utils/nameUtils';
 
 function AppContent() {
-  const [user, setUser] = useState<{ id: string; name: string; role: 'admin' | 'user'; token?: string } | null>(null);
+  const [user, setUser] = useState<{ id: string; name: string; role: 'admin' | 'user' } | null>(null);
   const [loading, setLoading] = useState(true);
-  const [searchParams] = useSearchParams();
   const location = useLocation();
 
-  // Validate token from URL on every mount and route change
+  // Check for name in URL path and auto-login
   useEffect(() => {
-    const token = searchParams.get('token');
+    const pathParts = location.pathname.split('/').filter(Boolean);
+    const knownRoutes = ['admin', 'user', 'workout', 'exercise'];
     
-    if (token) {
-      // Store token in sessionStorage as fallback for bookmarks
-      sessionStorage.setItem('auth_token', token);
+    // Check if we're on a user path (e.g., /john-doe)
+    if (pathParts.length === 1 && !knownRoutes.includes(pathParts[0])) {
+      const nameSlug = pathParts[0];
       
-      // Validate token from URL
-      fetch(`/api/auth/login?token=${token}`)
-        .then(res => {
-          if (res.ok) {
-            return res.json();
-          }
-          throw new Error('Invalid token');
-        })
-        .then(data => {
-          setUser({ ...data.user, token });
-        })
-        .catch(() => {
-          setUser(null);
-          sessionStorage.removeItem('auth_token');
-        })
-        .finally(() => setLoading(false));
-    } else {
-      // No token in URL - check sessionStorage as fallback
-      const storedToken = sessionStorage.getItem('auth_token');
-      if (storedToken) {
-        // Redirect to current URL with token
-        const currentUrl = new URL(window.location.href);
-        currentUrl.searchParams.set('token', storedToken);
-        window.location.href = currentUrl.toString();
+      // Check if we already have the correct user logged in
+      if (user && user.role === 'user' && slugifyName(user.name) === nameSlug) {
+        setLoading(false);
         return;
       }
-      // No token - user must be admin or not logged in
+      
+      // Try to login with the name from the path
+      handleNameLogin(nameSlug);
+    } else if (pathParts[0] === 'admin') {
+      // Admin route - skip authentication check, let admin route handle it
+      setLoading(false);
+    } else if (pathParts[0] === 'workout' || pathParts[0] === 'exercise') {
+      // Protected routes - user should already be logged in
+      setLoading(false);
+    } else {
+      // Root path or other routes - show login
       setLoading(false);
     }
-  }, [searchParams, location.pathname]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname]);
+
+  const handleNameLogin = async (nameSlug: string) => {
+    setLoading(true);
+    
+    try {
+      const response = await fetch(`/api/auth/by-name/${encodeURIComponent(nameSlug)}`);
+      
+      if (!response.ok) {
+        throw new Error('Athlete not found');
+      }
+
+      const data = await response.json();
+      setUser(data.user);
+      
+      // If we're not already on the name path, navigate to it
+      const expectedPath = `/${nameSlug}`;
+      if (location.pathname !== expectedPath) {
+        window.history.replaceState(null, '', expectedPath);
+      }
+    } catch (err) {
+      console.error('Failed to login:', err);
+      setUser(null);
+      // Redirect to home if login fails
+      if (location.pathname !== '/') {
+        window.location.href = '/';
+        return;
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleLogout = () => {
     setUser(null);
-    sessionStorage.removeItem('auth_token');
-    // Navigate to home without token
+    // Navigate to home
     window.location.href = '/';
-  };
-
-  // Helper to preserve token in navigation
-  const preserveToken = (path: string) => {
-    const token = searchParams.get('token');
-    return token ? `${path}?token=${token}` : path;
   };
 
   if (loading) {
@@ -77,24 +92,30 @@ function AppContent() {
       <Routes>
         <Route path="/" element={
           user ? (
-            user.role === 'admin' ? <Navigate to="/admin" /> : <Navigate to={preserveToken('/user')} />
+            user.role === 'admin' ? <Navigate to="/admin" /> : <Navigate to={`/${slugifyName(user.name)}`} />
           ) : (
             <LoginScreen onLogin={(user) => {
               setUser(user);
+              if (user.role === 'user') {
+                window.location.href = `/${slugifyName(user.name)}`;
+              }
             }} />
           )
         } />
         <Route path="/admin/*" element={
           user?.role === 'admin' ? <AdminDashboard user={user} onLogout={handleLogout} /> : <Navigate to="/" />
         } />
-        <Route path="/user" element={
-          user?.role === 'user' ? <UserDashboard user={user} onLogout={handleLogout} /> : <Navigate to={preserveToken('/')} />
-        } />
         <Route path="/workout/:workoutId" element={
-          user ? <WorkoutViewer userId={user.id} onBack={() => window.history.back()} /> : <Navigate to={preserveToken('/')} />
+          user ? <WorkoutViewer userId={user.id} onBack={() => window.history.back()} /> : <Navigate to="/" />
         } />
         <Route path="/exercise/:workoutId/:exerciseName" element={
-          user ? <ExerciseDetail onBack={() => window.history.back()} /> : <Navigate to={preserveToken('/')} />
+          user ? <ExerciseDetail onBack={() => window.history.back()} /> : <Navigate to="/" />
+        } />
+        <Route path="/user" element={
+          user?.role === 'user' ? <UserDashboard user={user} onLogout={handleLogout} /> : <Navigate to="/" />
+        } />
+        <Route path="/:name" element={
+          user?.role === 'user' ? <UserDashboard user={user} onLogout={handleLogout} /> : <Navigate to="/" />
         } />
       </Routes>
     </div>
