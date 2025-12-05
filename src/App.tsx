@@ -17,8 +17,10 @@ function TokenRoute({ onSetUser, onLogout }: { onSetUser: (user: { id: string; n
   const [user, setUser] = useState<{ id: string; name: string; role: 'admin' | 'user' } | null>(null);
 
   useEffect(() => {
-    // Get token or player name from query parameters
-    const searchParams = new URLSearchParams(location.search);
+    // Get token or player name from query parameters - use window.location first
+    // This ensures we get query params even if React Router hasn't initialized them yet
+    const searchString = window.location.search || location.search;
+    const searchParams = new URLSearchParams(searchString);
     const token = searchParams.get('token');
     const playerName = searchParams.get('player');
     const mode = searchParams.get('mode');
@@ -133,7 +135,9 @@ function AdminTokenRoute({ onSetUser, onLogout, parentUser }: {
   const [user, setUser] = useState<{ id: string; name: string; role: 'admin' | 'user' } | null>(null);
 
   useEffect(() => {
-    const searchParams = new URLSearchParams(location.search);
+    // Use window.location first to ensure query params are available on webapp launch
+    const searchString = window.location.search || location.search;
+    const searchParams = new URLSearchParams(searchString);
     const token = searchParams.get('token');
 
     const handleAdminLogin = (adminToken: string) => {
@@ -214,8 +218,11 @@ function RootRoute({ user, onSetUser }: {
 }) {
   const location = useLocation();
 
-  // Check for player name or token in query params - redirect to appropriate route
-  const searchParams = new URLSearchParams(location.search);
+  // Check for player name or token in query params - use window.location first
+  // This is critical for PWA/home screen launches where React Router's location.search
+  // may not be populated yet on initial render
+  const searchString = window.location.search || location.search;
+  const searchParams = new URLSearchParams(searchString);
   const playerName = searchParams.get('player');
   const mode = searchParams.get('mode');
   const token = searchParams.get('token');
@@ -274,7 +281,9 @@ function ProtectedRoute({
   const location = useLocation();
   const [user, setUser] = useState<{ id: string; name: string; role: 'admin' | 'user' } | null>(null);
   const [loading, setLoading] = useState(true);
-  const searchParams = new URLSearchParams(location.search);
+  // Use window.location first to ensure query params are available on webapp launch
+  const searchString = window.location.search || location.search;
+  const searchParams = new URLSearchParams(searchString);
   const token = getTokenFromUrl();
   const playerName = searchParams.get('player');
   const mode = searchParams.get('mode');
