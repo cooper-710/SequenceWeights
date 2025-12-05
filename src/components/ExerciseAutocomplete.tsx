@@ -102,7 +102,7 @@ export function ExerciseAutocomplete({
       {open && (
         <div
           ref={dropdownRef}
-          className="absolute z-[100] w-full mt-1 bg-zinc-900 border border-zinc-800 rounded-lg shadow-lg max-h-60 overflow-y-auto overscroll-contain"
+          className="absolute z-[9999] w-full mt-1 bg-zinc-900 border border-zinc-800 rounded-lg shadow-lg max-h-60 overflow-y-auto overscroll-contain"
           style={{ 
             scrollbarWidth: 'thin',
             scrollbarColor: '#52525b #18181b'
