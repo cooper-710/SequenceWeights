@@ -34,8 +34,8 @@ export function ExerciseAutocomplete({
         const rect = inputRef.current?.getBoundingClientRect();
         if (rect) {
           setDropdownPosition({
-            top: rect.bottom + window.scrollY + 4,
-            left: rect.left + window.scrollX,
+            top: rect.bottom + 4,
+            left: rect.left,
             width: rect.width,
           });
         }
