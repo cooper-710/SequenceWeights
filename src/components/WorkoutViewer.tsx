@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { ChevronLeft, Heart, Activity, Dumbbell, ChevronRight, CheckCircle2, Circle, PlayCircle } from 'lucide-react';
 import sequenceLogo from 'figma:asset/5c2d0c8af8dfc8338b2c35795df688d7811f7b51.png';
 import { ImageWithFallback } from './figma/ImageWithFallback';
@@ -36,6 +36,7 @@ export function WorkoutViewer({ userId, onBack }: WorkoutViewerProps) {
   const { workoutId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
   const [workout, setWorkout] = useState<Workout | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -281,7 +282,13 @@ export function WorkoutViewer({ userId, onBack }: WorkoutViewerProps) {
                   return (
                     <div
                       key={exercise.id}
-                      onClick={() => navigate(`/exercise/${workout.id}/${encodeURIComponent(exercise.exerciseName)}`)}
+                      onClick={() => {
+                        const token = searchParams.get('token');
+                        const url = token 
+                          ? `/exercise/${workout.id}/${encodeURIComponent(exercise.exerciseName)}?token=${token}`
+                          : `/exercise/${workout.id}/${encodeURIComponent(exercise.exerciseName)}`;
+                        navigate(url);
+                      }}
                       className={`
                         bg-[#1B1B1E] border ${getBlockBorderColor(blockIndex)}
                         rounded-xl p-4 cursor-pointer

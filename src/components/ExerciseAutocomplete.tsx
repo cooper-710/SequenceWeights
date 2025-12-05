@@ -60,7 +60,7 @@ export function ExerciseAutocomplete({
   const filteredExercises = exercises.length > 0 
     ? exercises.filter(exercise =>
         exercise.name.toLowerCase().includes(value.toLowerCase())
-      ).slice(0, 10) // Limit to 10 results for performance
+      )
     : [];
 
   const handleSelect = (exerciseName: string) => {
@@ -102,7 +102,11 @@ export function ExerciseAutocomplete({
       {open && (
         <div
           ref={dropdownRef}
-          className="absolute z-[100] w-full mt-1 bg-zinc-900 border border-zinc-800 rounded-lg shadow-lg max-h-60 overflow-auto"
+          className="absolute z-[100] w-full mt-1 bg-zinc-900 border border-zinc-800 rounded-lg shadow-lg max-h-60 overflow-y-auto overscroll-contain"
+          style={{ 
+            scrollbarWidth: 'thin',
+            scrollbarColor: '#52525b #18181b'
+          }}
         >
           {loading ? (
             <div className="py-6 text-center text-sm text-gray-400">Loading exercises...</div>

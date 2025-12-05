@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { ChevronLeft, Check, PlayCircle, XCircle, Plus } from 'lucide-react';
 import sequenceLogo from 'figma:asset/5c2d0c8af8dfc8338b2c35795df688d7811f7b51.png';
 import { ImageWithFallback } from './figma/ImageWithFallback';
@@ -28,6 +28,7 @@ interface WorkoutExercise {
 export function ExerciseDetail({ onBack }: ExerciseDetailProps) {
   const { workoutId, exerciseName } = useParams<{ workoutId: string; exerciseName: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const decodedExerciseName = exerciseName ? decodeURIComponent(exerciseName) : '';
 
   const [workout, setWorkout] = useState<Workout | null>(null);
@@ -43,18 +44,25 @@ export function ExerciseDetail({ onBack }: ExerciseDetailProps) {
   const [showCelebration, setShowCelebration] = useState(false);
   const [allExercisesCompleted, setAllExercisesCompleted] = useState(false);
 
-  // Load userId from localStorage
+  // Load userId from token in URL
   useEffect(() => {
-    const savedUser = localStorage.getItem('user');
-    if (savedUser) {
-      try {
-        const parsedUser = JSON.parse(savedUser);
-        setUserId(parsedUser.id);
-      } catch (err) {
-        console.error('Error parsing user:', err);
-      }
+    const token = searchParams.get('token');
+    if (token) {
+      fetch(`/api/auth/login?token=${token}`)
+        .then(res => {
+          if (res.ok) {
+            return res.json();
+          }
+          throw new Error('Invalid token');
+        })
+        .then(data => {
+          setUserId(data.user.id);
+        })
+        .catch(err => {
+          console.error('Error validating token:', err);
+        });
     }
-  }, []);
+  }, [searchParams]);
 
   // Fetch workout and exercise data
   useEffect(() => {
@@ -92,13 +100,11 @@ export function ExerciseDetail({ onBack }: ExerciseDetailProps) {
         // Load saved sets or initialize default sets
         const loadSets = async () => {
           try {
-            const savedUser = localStorage.getItem('user');
-            if (savedUser && foundExercise) {
-              const parsedUser = JSON.parse(savedUser);
+            if (userId && foundExercise) {
               const savedSets = await workoutsApi.getExerciseSets(
                 workoutId,
                 foundExercise.id,
-                parsedUser.id
+                userId
               );
               
               if (savedSets && savedSets.length > 0) {
@@ -139,13 +145,11 @@ export function ExerciseDetail({ onBack }: ExerciseDetailProps) {
         // Load saved notes
         const loadNotes = async () => {
           try {
-            const savedUser = localStorage.getItem('user');
-            if (savedUser && foundExercise) {
-              const parsedUser = JSON.parse(savedUser);
+            if (userId && foundExercise) {
               const savedNotes = await workoutsApi.getExerciseNotes(
                 workoutId,
                 foundExercise.id,
-                parsedUser.id
+                userId
               );
               if (savedNotes) {
                 setNotes(savedNotes.notes || '');
@@ -176,7 +180,7 @@ export function ExerciseDetail({ onBack }: ExerciseDetailProps) {
     };
 
     loadData();
-  }, [workoutId, decodedExerciseName]);
+  }, [workoutId, decodedExerciseName, userId]);
 
   // Get all exercises for navigation
   const allExercises: Array<{ name: string; blockIndex: number; exerciseIndex: number }> = [];
@@ -273,6 +277,9 @@ export function ExerciseDetail({ onBack }: ExerciseDetailProps) {
     await saveSets();
     await saveNotes();
     
+    const token = searchParams.get('token');
+    const workoutUrl = token ? `/workout/${workout.id}?token=${token}` : `/workout/${workout.id}`;
+    
     // Check if all exercises are really completed
     try {
       const status = await workoutsApi.getCompletionStatus(workout.id, userId);
@@ -287,16 +294,16 @@ export function ExerciseDetail({ onBack }: ExerciseDetailProps) {
         
         // Wait for animation, then navigate
         setTimeout(() => {
-          navigate(`/workout/${workout.id}`);
+          navigate(workoutUrl);
         }, 2500); // 2.5 seconds for celebration
       } else {
         // Not all exercises completed, just navigate back
-        navigate(`/workout/${workout.id}`);
+        navigate(workoutUrl);
       }
     } catch (err) {
       console.error('Error checking completion:', err);
       // Navigate back anyway
-      navigate(`/workout/${workout.id}`);
+      navigate(workoutUrl);
     }
   };
 
@@ -305,7 +312,11 @@ export function ExerciseDetail({ onBack }: ExerciseDetailProps) {
       await saveSets(); // Save before navigating
       await saveNotes(); // Save notes before navigating
       const prev = allExercises[currentIndex - 1];
-      navigate(`/exercise/${workout.id}/${encodeURIComponent(prev.name)}`);
+      const token = searchParams.get('token');
+      const url = token 
+        ? `/exercise/${workout.id}/${encodeURIComponent(prev.name)}?token=${token}`
+        : `/exercise/${workout.id}/${encodeURIComponent(prev.name)}`;
+      navigate(url);
     }
   };
 
@@ -314,7 +325,11 @@ export function ExerciseDetail({ onBack }: ExerciseDetailProps) {
       await saveSets(); // Save before navigating
       await saveNotes(); // Save notes before navigating
       const next = allExercises[currentIndex + 1];
-      navigate(`/exercise/${workout.id}/${encodeURIComponent(next.name)}`);
+      const token = searchParams.get('token');
+      const url = token 
+        ? `/exercise/${workout.id}/${encodeURIComponent(next.name)}?token=${token}`
+        : `/exercise/${workout.id}/${encodeURIComponent(next.name)}`;
+      navigate(url);
     } else if (!hasNext && currentExerciseAllSetsCompleted) {
       // On last exercise and all sets completed
       await handleCompleteWorkout();
@@ -423,7 +438,9 @@ export function ExerciseDetail({ onBack }: ExerciseDetailProps) {
           <button
             onClick={() => {
               if (workoutId) {
-                navigate(`/workout/${workoutId}`);
+                const token = searchParams.get('token');
+                const url = token ? `/workout/${workoutId}?token=${token}` : `/workout/${workoutId}`;
+                navigate(url);
               } else {
                 onBack();
               }
@@ -450,7 +467,9 @@ export function ExerciseDetail({ onBack }: ExerciseDetailProps) {
                   await saveNotes();
                 }
                 if (workoutId) {
-                  navigate(`/workout/${workoutId}`);
+                  const token = searchParams.get('token');
+                  const url = token ? `/workout/${workoutId}?token=${token}` : `/workout/${workoutId}`;
+                  navigate(url);
                 } else {
                   onBack();
                 }

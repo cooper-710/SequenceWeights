@@ -43,14 +43,11 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
       const data = await response.json();
       const user = {
         ...data.user,
-        token, // Store token for session persistence
+        token, // Keep token for future validation
       };
       
-      // Save to localStorage for session persistence
-      localStorage.setItem('user', JSON.stringify(user));
-      
-      // Clear token from URL
-      navigate('/user', { replace: true });
+      // Navigate to user dashboard, keeping token in URL for bookmark
+      navigate(`/user?token=${token}`, { replace: true });
       
       onLogin(user);
     } catch (err: any) {
@@ -67,7 +64,6 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
     // Mock login logic for admin
     if (email.includes('admin')) {
       const adminUser = { id: '1', name: 'Admin User', role: 'admin' as const };
-      localStorage.setItem('user', JSON.stringify(adminUser));
       onLogin(adminUser);
     } else {
       setError('Please use your login link provided by your coach');

@@ -230,3 +230,22 @@ html {
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
 }
+
+/* Custom scrollbar styling for dropdowns */
+.overflow-y-auto::-webkit-scrollbar {
+  width: 8px;
+}
+
+.overflow-y-auto::-webkit-scrollbar-track {
+  background: #18181b;
+  border-radius: 4px;
+}
+
+.overflow-y-auto::-webkit-scrollbar-thumb {
+  background: #52525b;
+  border-radius: 4px;
+}
+
+.overflow-y-auto::-webkit-scrollbar-thumb:hover {
+  background: #71717a;
+}
