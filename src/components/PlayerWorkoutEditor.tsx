@@ -380,9 +380,9 @@ export function PlayerWorkoutEditor({ athlete, onBack }: PlayerWorkoutEditorProp
       const data = await workoutsApi.getAll({ athleteId: athlete.id });
       setWorkouts(data);
       
-      // Load completion status for all workouts
+      // Load completion status for all workouts in parallel
       const completionStatus: Record<string, boolean> = {};
-      for (const workout of data) {
+      const statusPromises = data.map(async (workout) => {
         try {
           const status = await workoutsApi.getCompletionStatus(workout.id, athlete.id);
           // Check if all exercises are completed
@@ -392,12 +392,18 @@ export function PlayerWorkoutEditor({ athlete, onBack }: PlayerWorkoutEditorProp
             const exerciseStatus = status[exerciseName];
             return exerciseStatus?.status === 'completed';
           });
-          completionStatus[workout.id] = isCompleted;
+          return { workoutId: workout.id, isCompleted };
         } catch (err) {
           console.error(`Failed to load completion status for workout ${workout.id}:`, err);
-          completionStatus[workout.id] = false;
+          return { workoutId: workout.id, isCompleted: false };
         }
-      }
+      });
+      
+      const results = await Promise.all(statusPromises);
+      results.forEach(({ workoutId, isCompleted }) => {
+        completionStatus[workoutId] = isCompleted;
+      });
+      
       setWorkoutCompletionStatus(completionStatus);
     } catch (err) {
       console.error('Failed to load workouts:', err);
