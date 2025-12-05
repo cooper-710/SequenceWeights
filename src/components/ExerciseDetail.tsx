@@ -126,26 +126,26 @@ export function ExerciseDetail({ userId, onBack }: ExerciseDetailProps) {
 
         await loadSets();
 
-        // Load saved notes
-        const loadNotes = async () => {
-          try {
-            if (userId && foundExercise) {
-              const savedNotes = await workoutsApi.getExerciseNotes(
-                workoutId,
-                foundExercise.id,
-                userId
-              );
-              if (savedNotes) {
-                setNotes(savedNotes.notes || '');
-              }
-            }
-          } catch (err) {
-            console.error('Error loading saved notes:', err);
-            setNotes('');
-          }
-        };
+        // Notes functionality disabled (removed to reduce serverless function count)
+        // const loadNotes = async () => {
+        //   try {
+        //     if (userId && foundExercise) {
+        //       const savedNotes = await workoutsApi.getExerciseNotes(
+        //         workoutId,
+        //         foundExercise.id,
+        //         userId
+        //       );
+        //       if (savedNotes) {
+        //         setNotes(savedNotes.notes || '');
+        //       }
+        //     }
+        //   } catch (err) {
+        //     console.error('Error loading saved notes:', err);
+        //     setNotes('');
+        //   }
+        // };
 
-        await loadNotes();
+        // await loadNotes();
 
         // Fetch exercise library to get video URL
         const allExercises = await exercisesApi.getAll();
@@ -197,28 +197,28 @@ export function ExerciseDetail({ userId, onBack }: ExerciseDetailProps) {
     }
   }, [userId, exercise, workoutId, sets]);
 
-  // Save notes function
-  const saveNotes = useCallback(async () => {
-    if (!userId || !exercise || !workoutId) return;
-    
-    try {
-      await workoutsApi.saveExerciseNotes(workoutId, exercise.id, userId, notes);
-    } catch (err: any) {
-      console.error('Error saving notes:', err);
-    }
-  }, [userId, exercise, workoutId, notes]);
+  // Notes functionality disabled (removed to reduce serverless function count)
+  // const saveNotes = useCallback(async () => {
+  //   if (!userId || !exercise || !workoutId) return;
+  //   
+  //   try {
+  //     await workoutsApi.saveExerciseNotes(workoutId, exercise.id, userId, notes);
+  //   } catch (err: any) {
+  //     console.error('Error saving notes:', err);
+  //   }
+  // }, [userId, exercise, workoutId, notes]);
 
   // Auto-save notes immediately when they change (no debounce for critical data)
-  useEffect(() => {
-    if (!userId || !exercise || !workoutId || !notes) return;
-    
-    // Save notes immediately when changed
-    const timer = setTimeout(() => {
-      saveNotes();
-    }, 500); // Small delay to avoid too many saves while typing
-    
-    return () => clearTimeout(timer);
-  }, [notes, saveNotes, userId, exercise, workoutId]);
+  // useEffect(() => {
+  //   if (!userId || !exercise || !workoutId || !notes) return;
+  //   
+  //   // Save notes immediately when changed
+  //   const timer = setTimeout(() => {
+  //     saveNotes();
+  //   }, 500); // Small delay to avoid too many saves while typing
+  //   
+  //   return () => clearTimeout(timer);
+  // }, [notes, saveNotes, userId, exercise, workoutId]);
 
   // Auto-save sets when they change (debounced to avoid too many API calls)
   useEffect(() => {
@@ -244,11 +244,12 @@ export function ExerciseDetail({ userId, onBack }: ExerciseDetailProps) {
           console.error('Error saving sets on unmount:', err);
         });
       }
-      if (userId && exercise && workoutId && notes) {
-        workoutsApi.saveExerciseNotes(workoutId, exercise.id, userId, notes).catch(err => {
-          console.error('Error saving notes on unmount:', err);
-        });
-      }
+      // Notes functionality disabled
+      // if (userId && exercise && workoutId && notes) {
+      //   workoutsApi.saveExerciseNotes(workoutId, exercise.id, userId, notes).catch(err => {
+      //     console.error('Error saving notes on unmount:', err);
+      //   });
+      // }
     };
   }, [userId, exercise, workoutId, sets, notes]);
 
@@ -282,7 +283,7 @@ export function ExerciseDetail({ userId, onBack }: ExerciseDetailProps) {
     // Save current exercise first and wait for it to complete
     try {
       await saveSets();
-      await saveNotes();
+      // await saveNotes(); // Notes functionality disabled
       
       // Small delay to ensure backend has processed
       await new Promise(resolve => setTimeout(resolve, 100));
@@ -319,7 +320,7 @@ export function ExerciseDetail({ userId, onBack }: ExerciseDetailProps) {
   const goToPrevious = async () => {
     if (hasPrevious && workout && exercise && userId) {
       await saveSets(); // Save before navigating
-      await saveNotes(); // Save notes before navigating
+      // await saveNotes(); // Notes functionality disabled
       const prev = allExercises[currentIndex - 1];
       const url = addTokenToUrl(`/exercise/${workout.id}/${encodeURIComponent(prev.name)}`, token);
       navigate(url);
@@ -329,7 +330,7 @@ export function ExerciseDetail({ userId, onBack }: ExerciseDetailProps) {
   const goToNext = async () => {
     if (hasNext && workout && exercise && userId) {
       await saveSets(); // Save before navigating
-      await saveNotes(); // Save notes before navigating
+      // await saveNotes(); // Notes functionality disabled
       const next = allExercises[currentIndex + 1];
       const url = addTokenToUrl(`/exercise/${workout.id}/${encodeURIComponent(next.name)}`, token);
       navigate(url);
@@ -501,7 +502,7 @@ export function ExerciseDetail({ userId, onBack }: ExerciseDetailProps) {
               onClick={async () => {
                 if (userId && exercise && workoutId) {
                   await saveSets();
-                  await saveNotes();
+                  // await saveNotes(); // Notes functionality disabled
                 }
                 if (workoutId) {
                   const url = addTokenToUrl(`/workout/${workoutId}`, token);
@@ -715,8 +716,8 @@ export function ExerciseDetail({ userId, onBack }: ExerciseDetailProps) {
               <span className="uppercase tracking-wider text-sm">Add Set</span>
             </button>
 
-            {/* Notes Section */}
-            <div className="bg-[#1B1B1E] border border-zinc-800 rounded-xl p-4">
+            {/* Notes Section - Disabled to reduce serverless function count */}
+            {/* <div className="bg-[#1B1B1E] border border-zinc-800 rounded-xl p-4">
               <label className="block text-gray-400 text-sm mb-2 uppercase tracking-wider">Workout Notes</label>
               <textarea
                 value={notes}
@@ -725,7 +726,7 @@ export function ExerciseDetail({ userId, onBack }: ExerciseDetailProps) {
                 rows={3}
                 placeholder="Add any notes about this exercise..."
               ></textarea>
-            </div>
+            </div> */}
           </div>
         </div>
       )}
