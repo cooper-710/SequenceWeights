@@ -3,7 +3,13 @@ import { getSupabaseClient } from '../../_helpers/supabase.js';
 import { handleCors, setCorsHeaders } from '../../_helpers/cors.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  console.log(`[Workout Nested Route] ${req.method} ${req.url}`, { query: req.query, method: req.method });
+  // Enhanced logging to debug routing
+  console.log(`[Workout Nested Route] ${req.method} ${req.url}`, { 
+    query: req.query, 
+    method: req.method,
+    fullUrl: req.url,
+    pathname: req.url?.split('?')[0]
+  });
   
   if (handleCors(req, res)) return;
   setCorsHeaders(res);
@@ -11,19 +17,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const supabase = getSupabaseClient();
   const { id: workoutId, slug } = req.query;
   
+  console.log('Raw query params:', { workoutId, slug, allQuery: req.query });
+  
   // Parse slug from Vercel's catch-all route
   // In Vercel, slug can be a string or array depending on the route
   let slugArray: string[] = [];
   
   if (Array.isArray(slug)) {
     slugArray = slug;
+    console.log('Slug is array:', slugArray);
   } else if (typeof slug === 'string') {
     slugArray = slug.split('/').filter(s => s);
+    console.log('Slug is string, parsed to:', slugArray);
   } else if (req.url) {
     // Fallback: parse from URL if slug is not provided in query params
     // In Vercel, req.url is the full path like /api/workouts/{id}/completion
     const urlPath = req.url.split('?')[0]; // Remove query string
     const parts = urlPath.split('/').filter(p => p);
+    
+    console.log('Parsing from URL:', { urlPath, parts });
     
     // Find where 'workouts' appears in the path
     const workoutsIndex = parts.indexOf('workouts');
@@ -32,14 +44,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       // parts = ['api', 'workouts', '1764906114647', 'completion']
       // We want: ['completion']
       slugArray = parts.slice(workoutsIndex + 2);
+      console.log('Parsed from workouts index:', slugArray);
     } else if (parts.length > 2 && parts[0] === 'api' && parts[1] === 'workouts') {
       // Alternative: if workouts not found but we have api/workouts pattern
       // parts = ['api', 'workouts', '1764906114647', 'completion']
       slugArray = parts.slice(3); // Skip 'api', 'workouts', and workoutId
+      console.log('Parsed from api/workouts pattern:', slugArray);
     }
   }
   
-  console.log('Parsed slug array:', slugArray, 'from query:', slug, 'from URL:', req.url);
+  console.log('Final slug array:', slugArray, 'from query:', slug, 'from URL:', req.url);
   
   // Determine which route we're handling based on path segments
   const isCompletion = slugArray[0] === 'completion';
@@ -50,13 +64,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     ? slugArray[exerciseIdIndex + 1]
     : null;
 
+  console.log('Route detection:', { isCompletion, isSets, isNotes, exerciseId, slugArray });
+
   if (!workoutId || typeof workoutId !== 'string') {
+    console.error('Missing workoutId:', workoutId);
     return res.status(400).json({ error: 'Workout ID is required' });
   }
   
   // If no slug segments, this shouldn't match - return 404
   if (slugArray.length === 0) {
-    console.error('No slug segments found. URL:', req.url, 'Query:', req.query);
+    console.error('No slug segments found. URL:', req.url, 'Query:', req.query, 'Parts:', req.url?.split('/'));
     return res.status(404).json({ error: 'Route not found - no path segments' });
   }
 
