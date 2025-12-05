@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useParams } from 'react-router-dom';
 import { AdminDashboard } from './components/AdminDashboard';
 import { UserDashboard } from './components/UserDashboard';
 import { WorkoutViewer } from './components/WorkoutViewer';
@@ -7,71 +7,74 @@ import { ExerciseDetail } from './components/ExerciseDetail';
 import { LoginScreen } from './components/LoginScreen';
 import { slugifyName } from './utils/nameUtils';
 
+// Component to handle name-based routes
+function NameRoute({ onSetUser, onLogout }: { onSetUser: (user: { id: string; name: string; role: 'admin' | 'user' }) => void; onLogout: () => void }) {
+  const { name } = useParams<{ name: string }>();
+  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<{ id: string; name: string; role: 'admin' | 'user' } | null>(null);
+
+  useEffect(() => {
+    if (!name) {
+      setLoading(false);
+      return;
+    }
+
+    const handleNameLogin = async (nameSlug: string) => {
+      setLoading(true);
+      try {
+        const response = await fetch(`/api/auth/by-name/${encodeURIComponent(nameSlug)}`);
+        if (response.ok) {
+          const data = await response.json();
+          setUser(data.user);
+          onSetUser(data.user);
+        } else {
+          // Redirect to home if login fails
+          window.location.href = '/';
+          return;
+        }
+      } catch (err) {
+        console.error('Failed to login:', err);
+        window.location.href = '/';
+        return;
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    handleNameLogin(name);
+  }, [name, onSetUser]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="text-white">Loading...</div>
+      </div>
+    );
+  }
+
+  if (user?.role === 'user') {
+    return <UserDashboard user={user} onLogout={onLogout} />;
+  }
+
+  return <Navigate to="/" replace />;
+}
+
 function AppContent() {
   const [user, setUser] = useState<{ id: string; name: string; role: 'admin' | 'user' } | null>(null);
   const [loading, setLoading] = useState(true);
   const location = useLocation();
 
-  // Check for name in URL path and auto-login
+  // Set loading to false for non-name routes
   useEffect(() => {
     const pathParts = location.pathname.split('/').filter(Boolean);
     const knownRoutes = ['admin', 'user', 'workout', 'exercise'];
     
-    // Check if we're on a user path (e.g., /john-doe)
-    if (pathParts.length === 1 && !knownRoutes.includes(pathParts[0])) {
-      const nameSlug = pathParts[0];
-      
-      // Check if we already have the correct user logged in
-      if (user && user.role === 'user' && slugifyName(user.name) === nameSlug) {
-        setLoading(false);
-        return;
-      }
-      
-      // Try to login with the name from the path
-      handleNameLogin(nameSlug);
-    } else if (pathParts[0] === 'admin') {
-      // Admin route - skip authentication check, let admin route handle it
-      setLoading(false);
-    } else if (pathParts[0] === 'workout' || pathParts[0] === 'exercise') {
-      // Protected routes - user should already be logged in
-      setLoading(false);
-    } else {
-      // Root path or other routes - show login
+    // Only handle loading for non-name routes
+    if (pathParts.length === 0 || knownRoutes.includes(pathParts[0])) {
       setLoading(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Name routes handle their own loading
   }, [location.pathname]);
-
-  const handleNameLogin = async (nameSlug: string) => {
-    setLoading(true);
-    
-    try {
-      const response = await fetch(`/api/auth/by-name/${encodeURIComponent(nameSlug)}`);
-      
-      if (!response.ok) {
-        throw new Error('Athlete not found');
-      }
-
-      const data = await response.json();
-      setUser(data.user);
-      
-      // If we're not already on the name path, navigate to it
-      const expectedPath = `/${nameSlug}`;
-      if (location.pathname !== expectedPath) {
-        window.history.replaceState(null, '', expectedPath);
-      }
-    } catch (err) {
-      console.error('Failed to login:', err);
-      setUser(null);
-      // Redirect to home if login fails
-      if (location.pathname !== '/') {
-        window.location.href = '/';
-        return;
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleLogout = () => {
     setUser(null);
@@ -110,17 +113,7 @@ function AppContent() {
         <Route path="/user" element={
           user?.role === 'user' ? <UserDashboard user={user} onLogout={handleLogout} /> : <Navigate to="/" />
         } />
-        <Route path="/:name" element={
-          loading ? (
-            <div className="min-h-screen bg-black flex items-center justify-center">
-              <div className="text-white">Loading...</div>
-            </div>
-          ) : user?.role === 'user' ? (
-            <UserDashboard user={user} onLogout={handleLogout} />
-          ) : (
-            <Navigate to="/" />
-          )
-        } />
+        <Route path="/:name" element={<NameRoute onSetUser={setUser} onLogout={handleLogout} />} />
       </Routes>
     </div>
   );
