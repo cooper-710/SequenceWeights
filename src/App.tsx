@@ -217,6 +217,7 @@ function RootRoute({ user, onSetUser }: {
   onSetUser: (user: { id: string; name: string; role: 'admin' | 'user' }) => void;
 }) {
   const location = useLocation();
+  const [checkingCache, setCheckingCache] = useState(true);
 
   // Check for player name or token in query params - use window.location first
   // This is critical for PWA/home screen launches where React Router's location.search
@@ -226,6 +227,20 @@ function RootRoute({ user, onSetUser }: {
   const playerName = searchParams.get('player');
   const mode = searchParams.get('mode');
   const token = searchParams.get('token');
+  
+  // Check for cached user on mount (for bookmark launches)
+  useEffect(() => {
+    const cachedUser = (window as any).__cachedUser;
+    if (cachedUser && !user && !token && !playerName) {
+      // Restore cached user if no URL params (bookmark launch)
+      if (cachedUser.role === 'user') {
+        onSetUser(cachedUser);
+      } else if (cachedUser.role === 'admin' && token === ADMIN_TOKEN) {
+        onSetUser(cachedUser);
+      }
+    }
+    setCheckingCache(false);
+  }, [user, token, playerName, onSetUser]);
   
   if (playerName && mode === 'player') {
     // Player name in URL - redirect to login route (spaces as +)
@@ -240,6 +255,11 @@ function RootRoute({ user, onSetUser }: {
     } else {
       return <Navigate to={`/login?token=${token}`} replace />;
     }
+  }
+
+  // Show loading while checking cache
+  if (checkingCache) {
+    return <LoadingScreen />;
   }
 
   if (user) {
