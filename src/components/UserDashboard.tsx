@@ -219,8 +219,8 @@ export function UserDashboard({ user, onLogout }: UserDashboardProps) {
       className="min-h-screen bg-black"
     >
       <div className="max-w-3xl mx-auto px-4 pt-4 pb-4 overflow-visible">
-        <div className="flex items-start mb-10 relative overflow-visible">
-          <div className="absolute left-1/2 -translate-x-1/2 w-auto overflow-visible">
+        <div className="flex flex-col items-center mb-8 relative overflow-visible">
+          <div className="w-full flex justify-center mb-6">
             <SequenceLogoText />
           </div>
         </div>
