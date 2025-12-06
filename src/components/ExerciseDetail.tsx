@@ -542,7 +542,7 @@ export function ExerciseDetail({ userId, onBack }: ExerciseDetailProps) {
       {/* Header */}
       <div className="bg-black border-b border-[#F56E0F]/20 shadow-lg shadow-black/20 overflow-visible pt-[env(safe-area-inset-top,0px)]">
         <div className="max-w-3xl mx-auto px-4 pt-4 pb-4 overflow-visible">
-          <div className="flex items-center justify-between mb-6 relative overflow-visible">
+          <div className="flex items-center justify-center mb-6 relative overflow-visible">
             <button 
               onClick={async () => {
                 if (userId && exercise && workoutId) {
@@ -559,14 +559,13 @@ export function ExerciseDetail({ userId, onBack }: ExerciseDetailProps) {
                   onBack();
                 }
               }}
-              className="p-3 rounded-lg bg-zinc-900 border border-zinc-800 text-gray-400 hover:text-[#F56E0F] hover:border-[#F56E0F]/50 transition-all z-10 flex-shrink-0"
+              className="absolute left-0 p-3 rounded-lg bg-zinc-900 border border-zinc-800 text-gray-400 hover:text-[#F56E0F] hover:border-[#F56E0F]/50 transition-all z-10"
             >
               <ChevronLeft className="w-5 h-5" />
             </button>
-            <div className="flex-1 flex justify-center overflow-visible">
+            <div className="w-full flex justify-center overflow-visible">
               <SequenceLogoText />
             </div>
-            <div className="w-[60px] flex-shrink-0"></div>
           </div>
 
           <div>
