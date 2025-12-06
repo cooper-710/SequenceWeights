@@ -238,19 +238,20 @@ export function WorkoutViewer({ userId, onBack }: WorkoutViewerProps) {
       {/* Header */}
       <div className="bg-black border-b border-[#F56E0F]/20 shadow-lg shadow-black/20 overflow-visible pt-[env(safe-area-inset-top,0px)]">
         <div className="max-w-3xl mx-auto px-4 pt-4 pb-4 overflow-visible">
-          <div className="flex items-start mb-6 relative overflow-visible">
+          <div className="flex items-center justify-between mb-6 relative overflow-visible">
             <button 
               onClick={() => {
                 // Navigate immediately - UserDashboard will fetch its own data
                 navigate('/user');
               }} 
-              className="mt-2 p-3 rounded-lg bg-zinc-900 border border-zinc-800 text-gray-400 hover:text-[#F56E0F] hover:border-[#F56E0F]/50 transition-all z-10"
+              className="p-3 rounded-lg bg-zinc-900 border border-zinc-800 text-gray-400 hover:text-[#F56E0F] hover:border-[#F56E0F]/50 transition-all z-10 flex-shrink-0"
             >
               <ChevronLeft className="w-5 h-5" />
             </button>
-            <div className="absolute left-1/2 -translate-x-1/2 w-auto max-w-[calc(100%-120px)] overflow-visible">
+            <div className="flex-1 flex justify-center overflow-visible">
               <SequenceLogoText />
             </div>
+            <div className="w-[60px] flex-shrink-0"></div>
           </div>
 
           <div className={`${isWorkoutComplete 
