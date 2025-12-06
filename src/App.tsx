@@ -289,7 +289,16 @@ function ProtectedRoute({
   const mode = searchParams.get('mode');
 
   useEffect(() => {
+    const cachedUser = (window as any).__cachedUser;
+    
+    // If no token/player but we have a cached user, use it (for bookmark launches)
     if (!token && !(playerName && mode === 'player')) {
+      if (cachedUser) {
+        setUser(cachedUser);
+        onSetUser(cachedUser);
+        setLoading(false);
+        return;
+      }
       setLoading(false);
       return;
     }
@@ -311,7 +320,6 @@ function ProtectedRoute({
       }
 
       // Check if user token or player name - use cached user if available to avoid re-authentication
-      const cachedUser = (window as any).__cachedUser;
       if (cachedUser && cachedUser.role === 'user') {
         setUser(cachedUser);
         onSetUser(cachedUser);
@@ -407,12 +415,18 @@ function AppContent() {
     const cachedUser = (window as any).__cachedUser;
     const token = getTokenFromUrl();
     const playerName = getPlayerFromUrl();
-    if (cachedUser && (token || playerName)) {
-      // Verify token or player name matches cached user
+    
+    // If we have a cached user, restore it (for bookmark/home screen launches)
+    if (cachedUser) {
+      // Verify token matches if present
       if (token === ADMIN_TOKEN && cachedUser.role === 'admin') {
         setUser(cachedUser);
-      } else if (cachedUser.role === 'user' && (token || playerName)) {
-        setUser(cachedUser);
+      } else if (cachedUser.role === 'user') {
+        // For user role, restore if we have token/player OR if launching from bookmark (no params)
+        // This allows the app to work when launched from home screen bookmark
+        if (token || playerName || (!token && !playerName)) {
+          setUser(cachedUser);
+        }
       }
     }
   }, []);
