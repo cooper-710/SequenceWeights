@@ -464,12 +464,19 @@ router.post('/:workoutId/exercises/:exerciseId/sets', (req, res) => {
     
     // Use transaction to save all sets
     const transaction = db.transaction(() => {
+      // First, delete all existing sets for this exercise/athlete/workout combination
+      // This ensures that deleted sets are actually removed from the database
+      db.prepare(`
+        DELETE FROM exercise_sets
+        WHERE block_exercise_id = ? AND workout_id = ? AND athlete_id = ?
+      `).run(exerciseId, workoutId, athleteId);
+      
+      // Then insert the new sets
       sets.forEach((set: any) => {
         const setId = `${exerciseId}_${athleteId}_${set.set}`;
         
-        // Use INSERT OR REPLACE to handle both new and existing sets
         db.prepare(`
-          INSERT OR REPLACE INTO exercise_sets 
+          INSERT INTO exercise_sets 
           (id, block_exercise_id, workout_id, athlete_id, set_number, weight, reps, completed, completed_at)
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         `).run(
