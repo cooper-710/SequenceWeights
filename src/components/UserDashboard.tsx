@@ -81,8 +81,10 @@ export function UserDashboard({ user, onLogout }: UserDashboardProps) {
       if (refreshTimeoutRef.current) {
         clearTimeout(refreshTimeoutRef.current);
       }
-      // Refresh immediately when navigating back
-      refreshCompletionStatus();
+      // Small delay to allow background completion checks to finish
+      refreshTimeoutRef.current = setTimeout(() => {
+        refreshCompletionStatus();
+      }, 500);
     }
 
     return () => {
@@ -125,13 +127,20 @@ export function UserDashboard({ user, onLogout }: UserDashboardProps) {
       // Clear the state
       window.history.replaceState({ ...locationState, workout: undefined, completionStatus: undefined }, '');
       
-      // Immediately refresh ALL workouts' completion status using the fast endpoint
+      // Refresh ALL workouts' completion status after a delay to allow background completion check to finish
+      // Keep the optimistic update until the refresh completes
       if (fullWorkouts.length > 0) {
-        workoutsApi.getCompletions(user.id).then(completions => {
-          setWorkoutCompletionStatus(completions);
-        }).catch(err => {
-          console.error('Failed to refresh completion status:', err);
-        });
+        setTimeout(() => {
+          workoutsApi.getCompletions(user.id).then(completions => {
+            // Merge with existing state to preserve optimistic updates
+            setWorkoutCompletionStatus(prev => ({
+              ...prev,
+              ...completions
+            }));
+          }).catch(err => {
+            console.error('Failed to refresh completion status:', err);
+          });
+        }, 1000); // 1 second delay to allow background completion check to finish
       }
       return;
     }
