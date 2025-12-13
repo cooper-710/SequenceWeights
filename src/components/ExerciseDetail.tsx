@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { createTokenPreservingNavigate, addTokenToUrl, addPlayerToUrl, getPlayerFromUrl } from '../utils/tokenNavigation';
 import { NavigationState } from '../utils/navigation';
@@ -50,6 +50,7 @@ export function ExerciseDetail({ userId, onBack }: ExerciseDetailProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [showCelebration, setShowCelebration] = useState(false);
   const [allExercisesCompleted, setAllExercisesCompleted] = useState(false);
+  const manualSaveInProgress = useRef(false);
 
   // Check for workout passed via navigation state (prevents flash of stale data)
   useEffect(() => {
@@ -246,6 +247,12 @@ export function ExerciseDetail({ userId, onBack }: ExerciseDetailProps) {
   useEffect(() => {
     if (!userId || !exercise || !workoutId || sets.length === 0) return;
     
+    // Skip auto-save if a manual save just happened (prevents race condition)
+    if (manualSaveInProgress.current) {
+      manualSaveInProgress.current = false;
+      return;
+    }
+    
     // Debounce saves to avoid too many API calls while user is making changes
     const timer = setTimeout(() => {
       saveSets().catch(err => {
@@ -424,6 +431,9 @@ export function ExerciseDetail({ userId, onBack }: ExerciseDetailProps) {
     const newSets = sets.map((s, i) => (i === setIndex ? { ...s, [field]: value } : s));
     setSets(newSets);
     
+    // Mark that we're doing a manual save to prevent auto-save from interfering
+    manualSaveInProgress.current = true;
+    
     // Save immediately for weight/reps changes
     if (userId && exercise && workoutId) {
       try {
@@ -437,6 +447,9 @@ export function ExerciseDetail({ userId, onBack }: ExerciseDetailProps) {
   const toggleSetComplete = async (setIndex: number) => {
     const newSets = sets.map((s, i) => (i === setIndex ? { ...s, completed: !s.completed } : s));
     setSets(newSets);
+    
+    // Mark that we're doing a manual save to prevent auto-save from interfering
+    manualSaveInProgress.current = true;
     
     // Save immediately when a set is toggled
     if (userId && exercise && workoutId) {
@@ -458,6 +471,9 @@ export function ExerciseDetail({ userId, onBack }: ExerciseDetailProps) {
     }];
     setSets(newSets);
     
+    // Mark that we're doing a manual save to prevent auto-save from interfering
+    manualSaveInProgress.current = true;
+    
     // Save immediately after adding set
     if (userId && exercise && workoutId) {
       try {
@@ -472,6 +488,9 @@ export function ExerciseDetail({ userId, onBack }: ExerciseDetailProps) {
     if (sets.length <= 1) return;
     const newSets = sets.filter((_, i) => i !== setIndex).map((s, i) => ({ ...s, set: i + 1 }));
     setSets(newSets);
+    
+    // Mark that we're doing a manual save to prevent auto-save from interfering
+    manualSaveInProgress.current = true;
     
     // Save immediately after deleting set
     if (userId && exercise && workoutId) {
