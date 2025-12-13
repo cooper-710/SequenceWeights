@@ -2,6 +2,81 @@ import { VercelRequest, VercelResponse } from '@vercel/node';
 import { getSupabaseClient } from '../../../../_helpers/supabase.js';
 import { handleCors, setCorsHeaders } from '../../../../_helpers/cors.js';
 
+// Helper function to check and mark workout as complete
+async function checkAndMarkWorkoutComplete(supabase: any, workoutId: string, athleteId: string) {
+  try {
+    // Get all exercises in the workout
+    const { data: blocks, error: blocksError } = await supabase
+      .from('blocks')
+      .select('*')
+      .eq('workout_id', workoutId)
+      .order('order_index', { ascending: true });
+
+    if (blocksError) throw blocksError;
+
+    let totalExercises = 0;
+    let completedExercises = 0;
+
+    for (const block of blocks || []) {
+      const { data: exercises, error: exercisesError } = await supabase
+        .from('block_exercises')
+        .select('*')
+        .eq('block_id', block.id)
+        .order('order_index', { ascending: true });
+
+      if (exercisesError) throw exercisesError;
+
+      for (const exercise of exercises || []) {
+        totalExercises++;
+        
+        // Get completion data for this exercise
+        const { data: completedSetsData, error: countError } = await supabase
+          .from('exercise_sets')
+          .select('*', { count: 'exact', head: false })
+          .eq('block_exercise_id', exercise.id)
+          .eq('workout_id', workoutId)
+          .eq('athlete_id', athleteId)
+          .eq('completed', 1);
+
+        if (countError) throw countError;
+
+        const totalSets = exercise.sets;
+        const completedCount = completedSetsData?.length || 0;
+
+        if (completedCount === totalSets && totalSets > 0) {
+          completedExercises++;
+        }
+      }
+    }
+
+    // If all exercises are completed, mark workout as complete
+    if (totalExercises > 0 && completedExercises === totalExercises) {
+      // Use upsert to handle both new and existing completions
+      const { error: upsertError } = await supabase
+        .from('workout_completions')
+        .upsert({
+          workout_id: workoutId,
+          athlete_id: athleteId,
+          completed_at: new Date().toISOString(),
+        }, {
+          onConflict: 'workout_id,athlete_id'
+        });
+
+      if (upsertError) throw upsertError;
+    } else {
+      // If not complete, remove from completions table (in case it was previously complete)
+      await supabase
+        .from('workout_completions')
+        .delete()
+        .eq('workout_id', workoutId)
+        .eq('athlete_id', athleteId);
+    }
+  } catch (error) {
+    console.error('Error checking workout completion:', error);
+    // Don't throw - we don't want to fail the sets save if completion check fails
+  }
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (handleCors(req, res)) return;
   setCorsHeaders(res);
@@ -73,6 +148,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .insert(setsToInsert);
 
       if (insertError) throw insertError;
+
+      // Check and mark workout as complete after saving sets
+      await checkAndMarkWorkoutComplete(supabase, workoutId, athleteId);
 
       res.json({ success: true, message: 'Sets saved successfully' });
     } else if (req.method === 'GET') {
