@@ -25,6 +25,65 @@ interface Workout {
   blocks: Block[];
 }
 
+// Helper function to check and mark workout as complete
+function checkAndMarkWorkoutComplete(workoutId: string, athleteId: string) {
+  try {
+    // Get all exercises in the workout
+    const blocks = db.prepare(`
+      SELECT * FROM blocks
+      WHERE workout_id = ?
+      ORDER BY order_index ASC
+    `).all(workoutId);
+    
+    let totalExercises = 0;
+    let completedExercises = 0;
+    
+    blocks.forEach((block: any) => {
+      const exercises = db.prepare(`
+        SELECT * FROM block_exercises
+        WHERE block_id = ?
+        ORDER BY order_index ASC
+      `).all(block.id);
+      
+      exercises.forEach((exercise: any) => {
+        totalExercises++;
+        // Get completion data for this exercise
+        const completedSets = db.prepare(`
+          SELECT COUNT(*) as count FROM exercise_sets
+          WHERE block_exercise_id = ? AND workout_id = ? AND athlete_id = ? AND completed = 1
+        `).get(exercise.id, workoutId, athleteId) as { count: number };
+        
+        const totalSets = exercise.sets;
+        const completedCount = completedSets.count;
+        
+        if (completedCount === totalSets && totalSets > 0) {
+          completedExercises++;
+        }
+      });
+    });
+    
+    // If all exercises are completed, mark workout as complete
+    if (totalExercises > 0 && completedExercises === totalExercises) {
+      // Use INSERT OR REPLACE to handle both new and existing completions
+      db.prepare(`
+        INSERT OR REPLACE INTO workout_completions (workout_id, athlete_id, completed_at)
+        VALUES (?, ?, datetime('now'))
+      `).run(workoutId, athleteId);
+      return true;
+    } else {
+      // If not complete, remove from completions table (in case it was previously complete)
+      db.prepare(`
+        DELETE FROM workout_completions
+        WHERE workout_id = ? AND athlete_id = ?
+      `).run(workoutId, athleteId);
+      return false;
+    }
+  } catch (error) {
+    console.error('Error checking workout completion:', error);
+    return false;
+  }
+}
+
 // GET /api/workouts - Get all workouts (optionally filter by athlete, team, or templates only)
 router.get('/', (req, res) => {
   try {
@@ -429,6 +488,9 @@ router.post('/:workoutId/exercises/:exerciseId/sets', (req, res) => {
     
     transaction();
     
+    // Check and mark workout as complete after saving sets
+    checkAndMarkWorkoutComplete(workoutId, athleteId);
+    
     res.json({ success: true, message: 'Sets saved successfully' });
   } catch (error: any) {
     console.error('Error saving exercise sets:', error);
@@ -521,6 +583,34 @@ router.get('/:workoutId/completion', (req, res) => {
   } catch (error: any) {
     console.error('Error fetching completion status:', error);
     res.status(500).json({ error: 'Failed to fetch completion status' });
+  }
+});
+
+// GET /api/workouts/completions?athleteId=xxx - Get all completed workouts for an athlete
+router.get('/completions', (req, res) => {
+  try {
+    const { athleteId } = req.query;
+    
+    if (!athleteId) {
+      return res.status(400).json({ error: 'athleteId query parameter is required' });
+    }
+    
+    // Get all completed workouts for this athlete
+    const completions = db.prepare(`
+      SELECT workout_id FROM workout_completions
+      WHERE athlete_id = ?
+    `).all(athleteId) as Array<{ workout_id: string }>;
+    
+    // Convert to a simple object: { workoutId: true }
+    const completionMap: Record<string, boolean> = {};
+    completions.forEach((completion) => {
+      completionMap[completion.workout_id] = true;
+    });
+    
+    res.json(completionMap);
+  } catch (error: any) {
+    console.error('Error fetching workout completions:', error);
+    res.status(500).json({ error: 'Failed to fetch workout completions' });
   }
 });
 

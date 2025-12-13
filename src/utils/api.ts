@@ -171,6 +171,10 @@ export const workoutsApi = {
     apiRequest<Record<string, { status: 'completed' | 'in-progress' | 'not-started'; completedSets: number; totalSets: number }>>(
       `/workouts/${workoutId}/completion?athleteId=${athleteId}`
     ),
+  getCompletions: (athleteId: string) =>
+    apiRequest<Record<string, boolean>>(
+      `/workouts/completions?athleteId=${athleteId}`
+    ),
   saveExerciseNotes: (
     workoutId: string,
     exerciseId: string,

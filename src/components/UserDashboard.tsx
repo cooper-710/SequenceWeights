@@ -58,43 +58,9 @@ export function UserDashboard({ user, onLogout }: UserDashboardProps) {
       if (fullWorkouts.length === 0) return;
       
       try {
-        // Load completion status in parallel for all workouts
-        const completionPromises = fullWorkouts.map(async (workout) => {
-          try {
-            const status = await workoutsApi.getCompletionStatus(workout.id, user.id);
-            // Check if all exercises are completed
-            const allExercises = workout.blocks.flatMap(block => block.exercises);
-            const isCompleted = allExercises.length > 0 && allExercises.every(exercise => {
-              const exerciseName = exercise.exerciseName || (exercise as any).name || '';
-              const exerciseStatus = status[exerciseName];
-              return exerciseStatus?.status === 'completed';
-            });
-            
-            return { workoutId: workout.id, isCompleted, status };
-          } catch (err) {
-            console.error(`Failed to refresh completion status for workout ${workout.id}:`, err);
-            return { workoutId: workout.id, isCompleted: false, status: {} };
-          }
-        });
-        
-        // Wait for all completion statuses in parallel
-        const results = await Promise.all(completionPromises);
-        
-        // Update state once with all results
-        const newCompletionStatus: Record<string, boolean> = {};
-        const newCompletionStatusMap: Record<string, Record<string, any>> = {};
-        results.forEach(({ workoutId, isCompleted, status }) => {
-          newCompletionStatus[workoutId] = isCompleted;
-          newCompletionStatusMap[workoutId] = status;
-        });
-        setWorkoutCompletionStatus(prev => ({
-          ...prev,
-          ...newCompletionStatus
-        }));
-        setCompletionStatusMap(prev => ({
-          ...prev,
-          ...newCompletionStatusMap
-        }));
+        // Use the fast completions endpoint instead of checking each workout
+        const completions = await workoutsApi.getCompletions(user.id);
+        setWorkoutCompletionStatus(completions);
       } catch (err) {
         console.error('Failed to refresh completion status:', err);
       }
@@ -159,42 +125,12 @@ export function UserDashboard({ user, onLogout }: UserDashboardProps) {
       // Clear the state
       window.history.replaceState({ ...locationState, workout: undefined, completionStatus: undefined }, '');
       
-      // Immediately refresh ALL workouts' completion status (not just this one)
-      // This ensures all completed workouts show as complete immediately
+      // Immediately refresh ALL workouts' completion status using the fast endpoint
       if (fullWorkouts.length > 0) {
-        // Load completion status in parallel for all workouts
-        const completionPromises = fullWorkouts.map(async (w) => {
-          try {
-            const status = await workoutsApi.getCompletionStatus(w.id, user.id);
-            const allExercises = w.blocks.flatMap(block => block.exercises);
-            const isCompleted = allExercises.length > 0 && allExercises.every(exercise => {
-              const exerciseName = exercise.exerciseName || (exercise as any).name || '';
-              const exerciseStatus = status[exerciseName];
-              return exerciseStatus?.status === 'completed';
-            });
-            return { workoutId: w.id, isCompleted, status };
-          } catch (err) {
-            console.error(`Failed to refresh completion status for workout ${w.id}:`, err);
-            return { workoutId: w.id, isCompleted: false, status: {} };
-          }
-        });
-        
-        // Update all workouts' completion status immediately
-        Promise.all(completionPromises).then(results => {
-          const newCompletionStatus: Record<string, boolean> = {};
-          const newCompletionStatusMap: Record<string, Record<string, any>> = {};
-          results.forEach(({ workoutId, isCompleted, status }) => {
-            newCompletionStatus[workoutId] = isCompleted;
-            newCompletionStatusMap[workoutId] = status;
-          });
-          setWorkoutCompletionStatus(prev => ({
-            ...prev,
-            ...newCompletionStatus
-          }));
-          setCompletionStatusMap(prev => ({
-            ...prev,
-            ...newCompletionStatusMap
-          }));
+        workoutsApi.getCompletions(user.id).then(completions => {
+          setWorkoutCompletionStatus(completions);
+        }).catch(err => {
+          console.error('Failed to refresh completion status:', err);
         });
       }
       return;
@@ -225,7 +161,13 @@ export function UserDashboard({ user, onLogout }: UserDashboardProps) {
   const loadWorkouts = async () => {
     try {
       setLoading(true);
-      const data = await workoutsApi.getAll({ athleteId: user.id });
+      
+      // Load workouts and completions in parallel - much faster!
+      const [data, completions] = await Promise.all([
+        workoutsApi.getAll({ athleteId: user.id }),
+        workoutsApi.getCompletions(user.id)
+      ]);
+      
       setFullWorkouts(data); // Store full workout data
       
       const scheduledWorkouts: ScheduledWorkout[] = data.map(workout => ({
@@ -237,45 +179,10 @@ export function UserDashboard({ user, onLogout }: UserDashboardProps) {
       }));
       setWorkouts(scheduledWorkouts);
       
-      // Load completion status in parallel for all workouts BEFORE showing calendar
-      const completionPromises = data.map(async (workout) => {
-        try {
-          const status = await workoutsApi.getCompletionStatus(workout.id, user.id);
-          // Check if all exercises are completed
-          const allExercises = workout.blocks.flatMap(block => block.exercises);
-          const isCompleted = allExercises.length > 0 && allExercises.every(exercise => {
-            const exerciseName = exercise.exerciseName || (exercise as any).name || '';
-            const exerciseStatus = status[exerciseName];
-            return exerciseStatus?.status === 'completed';
-          });
-          
-          return { workoutId: workout.id, isCompleted, status };
-        } catch (err) {
-          console.error(`Failed to load completion status for workout ${workout.id}:`, err);
-          return { workoutId: workout.id, isCompleted: false, status: {} };
-        }
-      });
+      // Set completion status from the fast completions endpoint
+      setWorkoutCompletionStatus(completions);
       
-      // Wait for all completion statuses in parallel BEFORE showing calendar
-      const results = await Promise.all(completionPromises);
-      
-      // Update state once with all results
-      const newCompletionStatus: Record<string, boolean> = {};
-      const newCompletionStatusMap: Record<string, Record<string, any>> = {};
-      results.forEach(({ workoutId, isCompleted, status }) => {
-        newCompletionStatus[workoutId] = isCompleted;
-        newCompletionStatusMap[workoutId] = status;
-      });
-      setWorkoutCompletionStatus(prev => ({
-        ...prev,
-        ...newCompletionStatus
-      }));
-      setCompletionStatusMap(prev => ({
-        ...prev,
-        ...newCompletionStatusMap
-      }));
-      
-      // NOW show calendar with completion status already loaded
+      // Show calendar immediately with completion status already loaded
       setLoading(false);
     } catch (err) {
       console.error('Failed to load workouts:', err);
