@@ -11,6 +11,32 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     if (req.method === 'GET') {
+      // Handle completions endpoint: /api/workouts?completions=true&athleteId=xxx
+      const { completions, athleteId: completionsAthleteId } = req.query;
+      
+      if (completions === 'true') {
+        if (!completionsAthleteId || typeof completionsAthleteId !== 'string') {
+          return res.status(400).json({ error: 'athleteId query parameter is required' });
+        }
+
+        // Get all completed workouts for this athlete
+        const { data: completionsData, error: completionsError } = await supabase
+          .from('workout_completions')
+          .select('workout_id')
+          .eq('athlete_id', completionsAthleteId);
+
+        if (completionsError) throw completionsError;
+
+        // Convert to a simple object: { workoutId: true }
+        const completionMap: Record<string, boolean> = {};
+        (completionsData || []).forEach((completion: any) => {
+          completionMap[completion.workout_id] = true;
+        });
+
+        return res.json(completionMap);
+      }
+
+      // Continue with existing workouts logic...
       const { athleteId, teamId, templatesOnly } = req.query;
 
       let query = supabase.from('workouts').select('*');

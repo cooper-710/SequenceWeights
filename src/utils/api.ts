@@ -173,7 +173,7 @@ export const workoutsApi = {
     ),
   getCompletions: (athleteId: string) =>
     apiRequest<Record<string, boolean>>(
-      `/workouts/completions?athleteId=${athleteId}`
+      `/workouts?completions=true&athleteId=${athleteId}`
     ),
   saveExerciseNotes: (
     workoutId: string,
