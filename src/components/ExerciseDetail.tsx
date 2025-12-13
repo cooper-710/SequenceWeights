@@ -895,7 +895,7 @@ export function ExerciseDetail({ userId, onBack }: ExerciseDetailProps) {
           {/* Close button */}
           <button
             onClick={handleDismissCelebration}
-            className="absolute top-4 right-4 p-3 rounded-lg bg-zinc-900/90 border border-zinc-700 text-white hover:text-white hover:bg-zinc-800 hover:border-zinc-600 transition-all z-[60]"
+            className="fixed top-4 right-4 p-3 rounded-lg bg-zinc-900/90 border border-zinc-700 text-white hover:text-white hover:bg-zinc-800 hover:border-zinc-600 transition-all z-[60]"
             aria-label="Close"
           >
             <X className="w-6 h-6" />
