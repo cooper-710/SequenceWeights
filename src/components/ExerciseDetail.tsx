@@ -303,66 +303,65 @@ export function ExerciseDetail({ userId, onBack }: ExerciseDetailProps) {
   const handleCompleteWorkout = async () => {
     if (!workout || !exercise || !userId) return;
     
-    // Save current exercise first and wait for it to complete
+    // Show celebration immediately - optimistic UI
+    setShowCelebration(true);
+    
+    // Save and verify in background
     try {
-      await saveSets();
-      // await saveNotes(); // Notes functionality disabled
+      // Save current exercise sets (don't wait for it to block the UI)
+      const savePromise = saveSets();
       
-      // Wait for backend to process
-      await new Promise(resolve => setTimeout(resolve, 200)); // Reduced delay
+      // Verify completion status in parallel
+      const verifyCompletion = async () => {
+        // Wait a small bit for save to complete
+        await savePromise;
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        // Check completion status (single check, no retries)
+        const status = await workoutsApi.getCompletionStatus(workout.id, userId);
+        const totalExercises = workout.blocks.reduce((total, block) => total + block.exercises.length, 0);
+        const allCompleted = Object.values(status).every(
+          (exerciseStatus) => exerciseStatus.status === 'completed'
+        ) && Object.keys(status).length === totalExercises;
+        
+        return { status, allCompleted };
+      };
       
       const workoutUrl = playerName 
         ? addPlayerToUrl(`/workout/${workout.id}`, playerName)
         : addTokenToUrl(`/workout/${workout.id}`, token);
       
-      // Check if all exercises are really completed
-      let status;
-      let allCompleted = false;
-      let retries = 0;
-      while (retries < 2 && !allCompleted) {
-        status = await workoutsApi.getCompletionStatus(workout.id, userId);
-        const totalExercises = workout.blocks.reduce((total, block) => total + block.exercises.length, 0);
-        allCompleted = Object.values(status).every(
-          (exerciseStatus) => exerciseStatus.status === 'completed'
-        ) && Object.keys(status).length === totalExercises;
-        
-        if (!allCompleted && retries < 1) {
-          await new Promise(resolve => setTimeout(resolve, 150));
-          retries++;
-        } else {
-          break;
-        }
-      }
-      
-      if (allCompleted) {
-        // Show celebration animation
-        setShowCelebration(true);
-        
-        // Wait for animation, then navigate with workout data AND completion status
+      // Verify in background, but navigate after animation regardless
+      verifyCompletion().then(({ status, allCompleted }) => {
+        // Navigate after celebration animation completes
         setTimeout(() => {
           navigate(workoutUrl, { 
             state: { 
               workout,
-              completionStatus: status // Pass completion status
+              completionStatus: status
             } 
           });
         }, 2000);
-      } else {
-        // Not all exercises completed, navigate back with workout data AND completion status
-        navigate(workoutUrl, { 
-          state: { 
-            workout,
-            completionStatus: status // Pass completion status even if not complete
-          } 
-        });
-      }
+      }).catch((err) => {
+        console.error('Error verifying completion:', err);
+        // Still navigate even if verification fails
+        setTimeout(() => {
+          navigate(workoutUrl, { 
+            state: { 
+              workout
+            } 
+          });
+        }, 2000);
+      });
     } catch (err) {
       console.error('Error completing workout:', err);
-      // Still navigate back even if there's an error
+      // Still navigate even if there's an error
       const workoutUrl = playerName 
         ? addPlayerToUrl(`/workout/${workout.id}`, playerName)
         : addTokenToUrl(`/workout/${workout.id}`, token);
-      navigate(workoutUrl, { state: { workout } });
+      setTimeout(() => {
+        navigate(workoutUrl, { state: { workout } });
+      }, 2000);
     }
   };
 
