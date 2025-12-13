@@ -308,27 +308,26 @@ export function ExerciseDetail({ userId, onBack }: ExerciseDetailProps) {
       await saveSets();
       // await saveNotes(); // Notes functionality disabled
       
-      // Wait longer to ensure backend has processed the save
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Wait for backend to process
+      await new Promise(resolve => setTimeout(resolve, 200)); // Reduced delay
       
       const workoutUrl = playerName 
         ? addPlayerToUrl(`/workout/${workout.id}`, playerName)
         : addTokenToUrl(`/workout/${workout.id}`, token);
       
-      // Check if all exercises are really completed (with retry for freshness)
+      // Check if all exercises are really completed
       let status;
       let allCompleted = false;
       let retries = 0;
-      while (retries < 3 && !allCompleted) {
+      while (retries < 2 && !allCompleted) {
         status = await workoutsApi.getCompletionStatus(workout.id, userId);
         const totalExercises = workout.blocks.reduce((total, block) => total + block.exercises.length, 0);
         allCompleted = Object.values(status).every(
           (exerciseStatus) => exerciseStatus.status === 'completed'
         ) && Object.keys(status).length === totalExercises;
         
-        if (!allCompleted && retries < 2) {
-          // Wait a bit more and retry
-          await new Promise(resolve => setTimeout(resolve, 300));
+        if (!allCompleted && retries < 1) {
+          await new Promise(resolve => setTimeout(resolve, 150));
           retries++;
         } else {
           break;
@@ -339,13 +338,23 @@ export function ExerciseDetail({ userId, onBack }: ExerciseDetailProps) {
         // Show celebration animation
         setShowCelebration(true);
         
-        // Wait for animation, then navigate with existing workout data
+        // Wait for animation, then navigate with workout data AND completion status
         setTimeout(() => {
-          navigate(workoutUrl, workout ? { state: { workout } } : {});
-        }, 2500); // 2.5 seconds for celebration
+          navigate(workoutUrl, { 
+            state: { 
+              workout,
+              completionStatus: status // Pass completion status
+            } 
+          });
+        }, 2000);
       } else {
-        // Not all exercises completed, navigate back with existing workout data
-        navigate(workoutUrl, workout ? { state: { workout } } : {});
+        // Not all exercises completed, navigate back with workout data AND completion status
+        navigate(workoutUrl, { 
+          state: { 
+            workout,
+            completionStatus: status // Pass completion status even if not complete
+          } 
+        });
       }
     } catch (err) {
       console.error('Error completing workout:', err);
@@ -353,7 +362,7 @@ export function ExerciseDetail({ userId, onBack }: ExerciseDetailProps) {
       const workoutUrl = playerName 
         ? addPlayerToUrl(`/workout/${workout.id}`, playerName)
         : addTokenToUrl(`/workout/${workout.id}`, token);
-      navigate(workoutUrl);
+      navigate(workoutUrl, { state: { workout } });
     }
   };
 
@@ -553,8 +562,20 @@ export function ExerciseDetail({ userId, onBack }: ExerciseDetailProps) {
                   const url = playerName 
                     ? addPlayerToUrl(`/workout/${workoutId}`, playerName)
                     : addTokenToUrl(`/workout/${workoutId}`, token);
-                  // Navigate with existing workout data
-                  navigate(url, { state: { workout } });
+                  
+                  // Load completion status before navigating to pass it along
+                  try {
+                    const status = await workoutsApi.getCompletionStatus(workoutId, userId);
+                    navigate(url, { 
+                      state: { 
+                        workout,
+                        completionStatus: status 
+                      } 
+                    });
+                  } catch (err) {
+                    console.error('Error loading completion status:', err);
+                    navigate(url, { state: { workout } });
+                  }
                 } else {
                   onBack();
                 }

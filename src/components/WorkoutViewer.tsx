@@ -53,13 +53,15 @@ export function WorkoutViewer({ userId, onBack }: WorkoutViewerProps) {
     minReps?: number;
     maxReps?: number;
   }>>({});
+  
+  // Track if we have initial data from navigation state
+  const [hasInitialData, setHasInitialData] = useState(false);
 
   const loadCompletionStatus = useCallback(async () => {
     if (!workoutId || !userId) return;
     
     try {
-      // Add a small delay to ensure backend has processed any recent saves
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // Load immediately - no artificial delay
       const status = await workoutsApi.getCompletionStatus(workoutId, userId);
       setCompletionStatus(status);
     } catch (err) {
@@ -83,52 +85,53 @@ export function WorkoutViewer({ userId, onBack }: WorkoutViewerProps) {
     }
   }, [workoutId]);
 
-  // Check for workout passed via navigation state (prevents flash of stale data)
+  // Check for workout and completion status passed via navigation state (prevents flash of stale data)
   useEffect(() => {
     const locationState = location.state as NavigationState | null;
     if (locationState?.workout) {
       // Use the passed workout immediately (no flash!)
       setWorkout(locationState.workout);
+      setHasInitialData(true);
       setLoading(false);
-      // Refresh in background to ensure it's up to date
+      
+      // Also set completion status if provided
+      if (locationState.completionStatus) {
+        setCompletionStatus(locationState.completionStatus);
+      }
+      
+      // Refresh in background to ensure it's up to date (only if we don't have completion status)
+      if (!locationState.completionStatus) {
+        setTimeout(() => {
+          loadCompletionStatus();
+        }, 100);
+      } else {
+        // Still refresh completion status in background but less urgently
+        setTimeout(() => {
+          loadCompletionStatus();
+        }, 500);
+      }
+      
+      // Refresh workout in background
       setTimeout(() => {
         loadWorkout();
-      }, 300);
+      }, 100);
+      
       // Clear the state so it doesn't persist on next navigation
-      window.history.replaceState({ ...locationState, workout: undefined }, '');
+      window.history.replaceState({ ...locationState, workout: undefined, completionStatus: undefined }, '');
       return;
     }
     
     if (workoutId) {
       loadWorkout();
     }
-  }, [workoutId, loadWorkout, location.state]);
+  }, [workoutId, loadWorkout, location.state, loadCompletionStatus]);
 
-  // Check for completion status passed via navigation state (prevents flash of stale data)
+  // Load completion status when workoutId or userId changes (only if we don't have it from state)
   useEffect(() => {
-    const locationState = location.state as { completionStatus?: typeof completionStatus } | null;
-    if (locationState?.completionStatus) {
-      // Use the passed status immediately (no flash!)
-      setCompletionStatus(locationState.completionStatus);
-      // Then refresh in background to ensure it's up to date
-      setTimeout(() => {
-        loadCompletionStatus();
-      }, 300);
-      // Clear the state so it doesn't persist on next navigation
-      window.history.replaceState({ ...locationState, completionStatus: undefined }, '');
+    if (workoutId && userId && !hasInitialData) {
+      loadCompletionStatus();
     }
-  }, [location.state]);
-
-  // Load completion status when workoutId or userId changes
-  useEffect(() => {
-    if (workoutId && userId) {
-      // Only load if we don't have state data (to avoid double loading)
-      const locationState = location.state as { completionStatus?: typeof completionStatus } | null;
-      if (!locationState?.completionStatus) {
-        loadCompletionStatus();
-      }
-    }
-  }, [workoutId, userId, loadCompletionStatus]);
+  }, [workoutId, userId, loadCompletionStatus, hasInitialData]);
 
   // Reload completion status when navigating back to workout (location change)
   // Removed visibility change and focus listeners - they cause unnecessary re-fetches
@@ -198,7 +201,8 @@ export function WorkoutViewer({ userId, onBack }: WorkoutViewerProps) {
     return `${setsToShow} x ${repsToShow}`;
   };
 
-  if (loading) {
+  // Only show loading screen if we don't have workout data AND we're actually loading
+  if (loading && !workout) {
     return <LoadingScreen />;
   }
 

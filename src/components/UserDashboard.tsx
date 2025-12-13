@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Calendar, Dumbbell, ChevronRight, Bed, Check } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { workoutsApi } from '../utils/api';
+import { workoutsApi, Workout } from '../utils/api';
 import { createTokenPreservingNavigate } from '../utils/tokenNavigation';
 import { NavigationState } from '../utils/navigation';
 import { SequenceLogoText } from './SequenceLogoText';
@@ -26,8 +26,10 @@ export function UserDashboard({ user, onLogout }: UserDashboardProps) {
   const location = useLocation();
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [workouts, setWorkouts] = useState<ScheduledWorkout[]>([]);
+  const [fullWorkouts, setFullWorkouts] = useState<Workout[]>([]); // Store full workout data
   const [loading, setLoading] = useState(true);
   const [workoutCompletionStatus, setWorkoutCompletionStatus] = useState<Record<string, boolean>>({});
+  const [completionStatusMap, setCompletionStatusMap] = useState<Record<string, Record<string, any>>>({}); // Store full completion status
 
   // Helper function to format date as YYYY-MM-DD in local timezone
   const formatLocalDate = (date: Date): string => {
@@ -77,6 +79,8 @@ export function UserDashboard({ user, onLogout }: UserDashboardProps) {
     try {
       setLoading(true);
       const data = await workoutsApi.getAll({ athleteId: user.id });
+      setFullWorkouts(data); // Store full workout data
+      
       const scheduledWorkouts: ScheduledWorkout[] = data.map(workout => ({
         id: workout.id,
         name: workout.name,
@@ -89,8 +93,8 @@ export function UserDashboard({ user, onLogout }: UserDashboardProps) {
       // Show calendar immediately - don't wait for completion status
       setLoading(false);
       
-      // Load completion status in the background and update as each one finishes
-      data.forEach(async (workout) => {
+      // Load completion status in parallel for all workouts (much faster!)
+      const completionPromises = data.map(async (workout) => {
         try {
           const status = await workoutsApi.getCompletionStatus(workout.id, user.id);
           // Check if all exercises are completed
@@ -101,20 +105,31 @@ export function UserDashboard({ user, onLogout }: UserDashboardProps) {
             return exerciseStatus?.status === 'completed';
           });
           
-          // Update state immediately when this workout's status is ready
-          setWorkoutCompletionStatus(prev => ({
-            ...prev,
-            [workout.id]: isCompleted
-          }));
+          return { workoutId: workout.id, isCompleted, status };
         } catch (err) {
           console.error(`Failed to load completion status for workout ${workout.id}:`, err);
-          // Still update state to mark as not completed on error
-          setWorkoutCompletionStatus(prev => ({
-            ...prev,
-            [workout.id]: false
-          }));
+          return { workoutId: workout.id, isCompleted: false, status: {} };
         }
       });
+      
+      // Wait for all completion statuses in parallel
+      const results = await Promise.all(completionPromises);
+      
+      // Update state once with all results
+      const newCompletionStatus: Record<string, boolean> = {};
+      const newCompletionStatusMap: Record<string, Record<string, any>> = {};
+      results.forEach(({ workoutId, isCompleted, status }) => {
+        newCompletionStatus[workoutId] = isCompleted;
+        newCompletionStatusMap[workoutId] = status;
+      });
+      setWorkoutCompletionStatus(prev => ({
+        ...prev,
+        ...newCompletionStatus
+      }));
+      setCompletionStatusMap(prev => ({
+        ...prev,
+        ...newCompletionStatusMap
+      }));
     } catch (err) {
       console.error('Failed to load workouts:', err);
       setWorkouts([]);
@@ -177,7 +192,16 @@ export function UserDashboard({ user, onLogout }: UserDashboardProps) {
     if (!date) return;
     const workout = getWorkoutForDate(date);
     if (workout) {
-      navigate(`/workout/${workout.id}`);
+      // Get full workout data and completion status from cache
+      const fullWorkout = fullWorkouts.find(w => w.id === workout.id);
+      const completionStatus = completionStatusMap[workout.id];
+      
+      navigate(`/workout/${workout.id}`, { 
+        state: { 
+          workout: fullWorkout || null,
+          completionStatus: completionStatus || null
+        } 
+      });
     }
   };
 
@@ -241,8 +265,16 @@ export function UserDashboard({ user, onLogout }: UserDashboardProps) {
           {todaysWorkout ? (
             <div
               onClick={() => {
-                // Navigate immediately - WorkoutViewer will fetch its own data
-                navigate(`/workout/${todaysWorkout.id}`);
+                // Get full workout data and completion status from cache
+                const fullWorkout = fullWorkouts.find(w => w.id === todaysWorkout.id);
+                const completionStatus = completionStatusMap[todaysWorkout.id];
+                
+                navigate(`/workout/${todaysWorkout.id}`, { 
+                  state: { 
+                    workout: fullWorkout || null,
+                    completionStatus: completionStatus || null
+                  } 
+                });
               }}
               className="bg-[#F56E0F]/30 border border-[#F56E0F] rounded-xl p-6 cursor-pointer hover:bg-[#F56E0F]/40 transition-all transform hover:scale-[1.02]"
             >
@@ -374,8 +406,16 @@ export function UserDashboard({ user, onLogout }: UserDashboardProps) {
               <div
                 key={workout.id}
                 onClick={() => {
-                  // Navigate immediately - WorkoutViewer will fetch its own data
-                  navigate(`/workout/${workout.id}`);
+                  // Get full workout data and completion status from cache
+                  const fullWorkout = fullWorkouts.find(w => w.id === workout.id);
+                  const completionStatus = completionStatusMap[workout.id];
+                  
+                  navigate(`/workout/${workout.id}`, { 
+                    state: { 
+                      workout: fullWorkout || null,
+                      completionStatus: completionStatus || null
+                    } 
+                  });
                 }}
                 className="bg-zinc-900 border border-zinc-800 rounded-lg p-4 hover:border-zinc-700 transition-colors cursor-pointer"
               >
