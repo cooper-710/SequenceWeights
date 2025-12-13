@@ -159,33 +159,44 @@ export function UserDashboard({ user, onLogout }: UserDashboardProps) {
       // Clear the state
       window.history.replaceState({ ...locationState, workout: undefined, completionStatus: undefined }, '');
       
-      // Optionally refresh in background to ensure consistency
-      setTimeout(() => {
-        if (fullWorkouts.length > 0) {
-          const existingWorkout = fullWorkouts.find(w => w.id === workout.id);
-          if (existingWorkout) {
-            workoutsApi.getCompletionStatus(workout.id, user.id).then(status => {
-              const allExercises = existingWorkout.blocks.flatMap(block => block.exercises);
-              const isCompleted = allExercises.length > 0 && allExercises.every(exercise => {
-                const exerciseName = exercise.exerciseName || (exercise as any).name || '';
-                const exerciseStatus = status[exerciseName];
-                return exerciseStatus?.status === 'completed';
-              });
-              
-              setWorkoutCompletionStatus(prev => ({
-                ...prev,
-                [workout.id]: isCompleted
-              }));
-              setCompletionStatusMap(prev => ({
-                ...prev,
-                [workout.id]: status
-              }));
-            }).catch(err => {
-              console.error('Failed to refresh completion status:', err);
+      // Immediately refresh ALL workouts' completion status (not just this one)
+      // This ensures all completed workouts show as complete immediately
+      if (fullWorkouts.length > 0) {
+        // Load completion status in parallel for all workouts
+        const completionPromises = fullWorkouts.map(async (w) => {
+          try {
+            const status = await workoutsApi.getCompletionStatus(w.id, user.id);
+            const allExercises = w.blocks.flatMap(block => block.exercises);
+            const isCompleted = allExercises.length > 0 && allExercises.every(exercise => {
+              const exerciseName = exercise.exerciseName || (exercise as any).name || '';
+              const exerciseStatus = status[exerciseName];
+              return exerciseStatus?.status === 'completed';
             });
+            return { workoutId: w.id, isCompleted, status };
+          } catch (err) {
+            console.error(`Failed to refresh completion status for workout ${w.id}:`, err);
+            return { workoutId: w.id, isCompleted: false, status: {} };
           }
-        }
-      }, 100);
+        });
+        
+        // Update all workouts' completion status immediately
+        Promise.all(completionPromises).then(results => {
+          const newCompletionStatus: Record<string, boolean> = {};
+          const newCompletionStatusMap: Record<string, Record<string, any>> = {};
+          results.forEach(({ workoutId, isCompleted, status }) => {
+            newCompletionStatus[workoutId] = isCompleted;
+            newCompletionStatusMap[workoutId] = status;
+          });
+          setWorkoutCompletionStatus(prev => ({
+            ...prev,
+            ...newCompletionStatus
+          }));
+          setCompletionStatusMap(prev => ({
+            ...prev,
+            ...newCompletionStatusMap
+          }));
+        });
+      }
       return;
     }
     
