@@ -213,8 +213,17 @@ export function WorkoutViewer({ userId, onBack }: WorkoutViewerProps) {
           <p className="text-red-400 mb-4">{error || 'Workout not found'}</p>
           <button
             onClick={() => {
-              // Navigate immediately - UserDashboard will fetch its own data
-              navigate('/user');
+              // Pass workout and completion status immediately for instant calendar update
+              if (workout) {
+                navigate('/user', {
+                  state: {
+                    workout: workout,
+                    completionStatus: completionStatus
+                  }
+                });
+              } else {
+                navigate('/user');
+              }
             }}
             className="text-orange-500 hover:text-orange-600"
           >
@@ -245,8 +254,17 @@ export function WorkoutViewer({ userId, onBack }: WorkoutViewerProps) {
           <div className="flex items-center justify-center mb-6 relative overflow-visible">
             <button 
               onClick={() => {
-                // Navigate immediately - UserDashboard will fetch its own data
-                navigate('/user');
+                // Pass workout and completion status immediately for instant calendar update
+                if (workout) {
+                  navigate('/user', {
+                    state: {
+                      workout: workout,
+                      completionStatus: completionStatus
+                    }
+                  });
+                } else {
+                  navigate('/user');
+                }
               }} 
               className="absolute left-0 p-3 rounded-lg bg-zinc-900 border border-zinc-800 text-gray-400 hover:text-[#F56E0F] hover:border-[#F56E0F]/50 transition-all z-10"
             >

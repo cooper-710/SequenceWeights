@@ -115,10 +115,8 @@ export function UserDashboard({ user, onLogout }: UserDashboardProps) {
       if (refreshTimeoutRef.current) {
         clearTimeout(refreshTimeoutRef.current);
       }
-      // Small delay to ensure we're back on the page and navigation is complete
-      refreshTimeoutRef.current = setTimeout(() => {
-        refreshCompletionStatus();
-      }, 200);
+      // Refresh immediately when navigating back
+      refreshCompletionStatus();
     }
 
     return () => {
@@ -133,6 +131,64 @@ export function UserDashboard({ user, onLogout }: UserDashboardProps) {
   // Check for workouts passed via navigation state (prevents flash of stale data)
   useEffect(() => {
     const locationState = location.state as NavigationState | null;
+    
+    // Handle completion status update from WorkoutViewer or ExerciseDetail
+    if (locationState?.completionStatus && locationState?.workout) {
+      const workout = locationState.workout;
+      const completionStatus = locationState.completionStatus;
+      
+      // Calculate if workout is completed
+      const allExercises = workout.blocks.flatMap(block => block.exercises);
+      const isCompleted = allExercises.length > 0 && allExercises.every(exercise => {
+        const exerciseName = exercise.exerciseName || (exercise as any).name || '';
+        const exerciseStatus = completionStatus[exerciseName];
+        return exerciseStatus?.status === 'completed';
+      });
+      
+      // Immediately update the completion status (no delay!)
+      setWorkoutCompletionStatus(prev => ({
+        ...prev,
+        [workout.id]: isCompleted
+      }));
+      
+      setCompletionStatusMap(prev => ({
+        ...prev,
+        [workout.id]: completionStatus
+      }));
+      
+      // Clear the state
+      window.history.replaceState({ ...locationState, workout: undefined, completionStatus: undefined }, '');
+      
+      // Optionally refresh in background to ensure consistency
+      setTimeout(() => {
+        if (fullWorkouts.length > 0) {
+          const existingWorkout = fullWorkouts.find(w => w.id === workout.id);
+          if (existingWorkout) {
+            workoutsApi.getCompletionStatus(workout.id, user.id).then(status => {
+              const allExercises = existingWorkout.blocks.flatMap(block => block.exercises);
+              const isCompleted = allExercises.length > 0 && allExercises.every(exercise => {
+                const exerciseName = exercise.exerciseName || (exercise as any).name || '';
+                const exerciseStatus = status[exerciseName];
+                return exerciseStatus?.status === 'completed';
+              });
+              
+              setWorkoutCompletionStatus(prev => ({
+                ...prev,
+                [workout.id]: isCompleted
+              }));
+              setCompletionStatusMap(prev => ({
+                ...prev,
+                [workout.id]: status
+              }));
+            }).catch(err => {
+              console.error('Failed to refresh completion status:', err);
+            });
+          }
+        }
+      }, 100);
+      return;
+    }
+    
     if (locationState?.workouts && locationState?.workoutCompletionStatus) {
       // Use the passed data immediately (no flash!)
       const scheduledWorkouts: ScheduledWorkout[] = locationState.workouts.map(workout => ({
@@ -153,7 +209,7 @@ export function UserDashboard({ user, onLogout }: UserDashboardProps) {
       window.history.replaceState({ ...locationState, workouts: undefined, workoutCompletionStatus: undefined }, '');
       return;
     }
-  }, [location.state]);
+  }, [location.state, fullWorkouts, user.id]);
 
   const loadWorkouts = async () => {
     try {
@@ -170,10 +226,7 @@ export function UserDashboard({ user, onLogout }: UserDashboardProps) {
       }));
       setWorkouts(scheduledWorkouts);
       
-      // Show calendar immediately - don't wait for completion status
-      setLoading(false);
-      
-      // Load completion status in parallel for all workouts (much faster!)
+      // Load completion status in parallel for all workouts BEFORE showing calendar
       const completionPromises = data.map(async (workout) => {
         try {
           const status = await workoutsApi.getCompletionStatus(workout.id, user.id);
@@ -192,7 +245,7 @@ export function UserDashboard({ user, onLogout }: UserDashboardProps) {
         }
       });
       
-      // Wait for all completion statuses in parallel
+      // Wait for all completion statuses in parallel BEFORE showing calendar
       const results = await Promise.all(completionPromises);
       
       // Update state once with all results
@@ -210,6 +263,9 @@ export function UserDashboard({ user, onLogout }: UserDashboardProps) {
         ...prev,
         ...newCompletionStatusMap
       }));
+      
+      // NOW show calendar with completion status already loaded
+      setLoading(false);
     } catch (err) {
       console.error('Failed to load workouts:', err);
       setWorkouts([]);
