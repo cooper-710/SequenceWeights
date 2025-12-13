@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Calendar, Dumbbell, ChevronRight, Bed, Check } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -29,7 +29,8 @@ export function UserDashboard({ user, onLogout }: UserDashboardProps) {
   const [fullWorkouts, setFullWorkouts] = useState<Workout[]>([]); // Store full workout data
   const [loading, setLoading] = useState(true);
   const [workoutCompletionStatus, setWorkoutCompletionStatus] = useState<Record<string, boolean>>({});
-  const [completionStatusMap, setCompletionStatusMap] = useState<Record<string, Record<string, any>>>({}); // Store full completion status
+  const [completionStatusMap, setCompletionStatusMap] = useState<Record<string, Record<string, any>>>({});
+  const refreshTimeoutRef = useRef<NodeJS.Timeout | null>(null); // Store full completion status
 
   // Helper function to format date as YYYY-MM-DD in local timezone
   const formatLocalDate = (date: Date): string => {
@@ -49,6 +50,85 @@ export function UserDashboard({ user, onLogout }: UserDashboardProps) {
   useEffect(() => {
     loadWorkouts();
   }, [user.id]);
+
+  // Refresh completion status whenever the calendar becomes visible
+  useEffect(() => {
+    // Function to refresh completion status
+    const refreshCompletionStatus = async () => {
+      if (fullWorkouts.length === 0) return;
+      
+      try {
+        // Load completion status in parallel for all workouts
+        const completionPromises = fullWorkouts.map(async (workout) => {
+          try {
+            const status = await workoutsApi.getCompletionStatus(workout.id, user.id);
+            // Check if all exercises are completed
+            const allExercises = workout.blocks.flatMap(block => block.exercises);
+            const isCompleted = allExercises.length > 0 && allExercises.every(exercise => {
+              const exerciseName = exercise.exerciseName || (exercise as any).name || '';
+              const exerciseStatus = status[exerciseName];
+              return exerciseStatus?.status === 'completed';
+            });
+            
+            return { workoutId: workout.id, isCompleted, status };
+          } catch (err) {
+            console.error(`Failed to refresh completion status for workout ${workout.id}:`, err);
+            return { workoutId: workout.id, isCompleted: false, status: {} };
+          }
+        });
+        
+        // Wait for all completion statuses in parallel
+        const results = await Promise.all(completionPromises);
+        
+        // Update state once with all results
+        const newCompletionStatus: Record<string, boolean> = {};
+        const newCompletionStatusMap: Record<string, Record<string, any>> = {};
+        results.forEach(({ workoutId, isCompleted, status }) => {
+          newCompletionStatus[workoutId] = isCompleted;
+          newCompletionStatusMap[workoutId] = status;
+        });
+        setWorkoutCompletionStatus(prev => ({
+          ...prev,
+          ...newCompletionStatus
+        }));
+        setCompletionStatusMap(prev => ({
+          ...prev,
+          ...newCompletionStatusMap
+        }));
+      } catch (err) {
+        console.error('Failed to refresh completion status:', err);
+      }
+    };
+
+    // Refresh when page becomes visible (user navigates back or switches tabs)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && fullWorkouts.length > 0) {
+        refreshCompletionStatus();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    // Refresh when navigating back to this page (location pathname changes to /user)
+    if (location.pathname === '/user' && fullWorkouts.length > 0) {
+      // Clear any existing timeout to prevent multiple refreshes
+      if (refreshTimeoutRef.current) {
+        clearTimeout(refreshTimeoutRef.current);
+      }
+      // Small delay to ensure we're back on the page and navigation is complete
+      refreshTimeoutRef.current = setTimeout(() => {
+        refreshCompletionStatus();
+      }, 200);
+    }
+
+    return () => {
+      if (refreshTimeoutRef.current) {
+        clearTimeout(refreshTimeoutRef.current);
+        refreshTimeoutRef.current = null;
+      }
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [fullWorkouts.length, user.id, location.pathname]);
 
   // Check for workouts passed via navigation state (prevents flash of stale data)
   useEffect(() => {

@@ -553,29 +553,22 @@ export function ExerciseDetail({ userId, onBack }: ExerciseDetailProps) {
         <div className="max-w-3xl mx-auto px-4 pt-4 pb-4 overflow-visible">
           <div className="flex items-center justify-center mb-6 relative overflow-visible">
             <button 
-              onClick={async () => {
-                if (userId && exercise && workoutId) {
-                  await saveSets();
-                  // await saveNotes(); // Notes functionality disabled
-                }
+              onClick={() => {
+                // Navigate immediately - don't wait for saves
                 if (workoutId && workout) {
                   const url = playerName 
                     ? addPlayerToUrl(`/workout/${workoutId}`, playerName)
                     : addTokenToUrl(`/workout/${workoutId}`, token);
                   
-                  // Load completion status before navigating to pass it along
-                  try {
-                    const status = await workoutsApi.getCompletionStatus(workoutId, userId);
-                    navigate(url, { 
-                      state: { 
-                        workout,
-                        completionStatus: status 
-                      } 
+                  // Save in background without blocking navigation
+                  if (userId && exercise && workoutId && sets.length > 0) {
+                    saveSets().catch(err => {
+                      console.error('Error saving sets on navigation:', err);
                     });
-                  } catch (err) {
-                    console.error('Error loading completion status:', err);
-                    navigate(url, { state: { workout } });
                   }
+                  
+                  // Navigate immediately with cached workout data
+                  navigate(url, { state: { workout } });
                 } else {
                   onBack();
                 }
