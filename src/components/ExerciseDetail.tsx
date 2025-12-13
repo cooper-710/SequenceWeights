@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { createTokenPreservingNavigate, addTokenToUrl, addPlayerToUrl, getPlayerFromUrl } from '../utils/tokenNavigation';
 import { NavigationState } from '../utils/navigation';
-import { ChevronLeft, Check, PlayCircle, XCircle, Plus } from 'lucide-react';
+import { ChevronLeft, Check, PlayCircle, XCircle, Plus, X } from 'lucide-react';
 import { SequenceLogoText } from './SequenceLogoText';
 import { LoadingScreen } from './LoadingScreen';
 import { workoutsApi, exercisesApi, Workout, Exercise as ExerciseLib } from '../utils/api';
@@ -51,6 +51,7 @@ export function ExerciseDetail({ userId, onBack }: ExerciseDetailProps) {
   const [showCelebration, setShowCelebration] = useState(false);
   const [allExercisesCompleted, setAllExercisesCompleted] = useState(false);
   const manualSaveInProgress = useRef(false);
+  const celebrationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Check for workout passed via navigation state (prevents flash of stale data)
   useEffect(() => {
@@ -338,27 +339,28 @@ export function ExerciseDetail({ userId, onBack }: ExerciseDetailProps) {
         ? addPlayerToUrl(`/workout/${workout.id}`, playerName)
         : addTokenToUrl(`/workout/${workout.id}`, token);
       
+      const navigateAway = (status?: any) => {
+        setShowCelebration(false);
+        navigate(workoutUrl, { 
+          state: { 
+            workout,
+            completionStatus: status
+          } 
+        });
+      };
+      
       // Verify in background, but navigate after animation regardless
       verifyCompletion().then(({ status, allCompleted }) => {
-        // Navigate after celebration animation completes
-        setTimeout(() => {
-          navigate(workoutUrl, { 
-            state: { 
-              workout,
-              completionStatus: status
-            } 
-          });
-        }, 2000);
+        // Navigate after 3 seconds
+        celebrationTimeoutRef.current = setTimeout(() => {
+          navigateAway(status);
+        }, 3000);
       }).catch((err) => {
         console.error('Error verifying completion:', err);
         // Still navigate even if verification fails
-        setTimeout(() => {
-          navigate(workoutUrl, { 
-            state: { 
-              workout
-            } 
-          });
-        }, 2000);
+        celebrationTimeoutRef.current = setTimeout(() => {
+          navigateAway();
+        }, 3000);
       });
     } catch (err) {
       console.error('Error completing workout:', err);
@@ -366,10 +368,54 @@ export function ExerciseDetail({ userId, onBack }: ExerciseDetailProps) {
       const workoutUrl = playerName 
         ? addPlayerToUrl(`/workout/${workout.id}`, playerName)
         : addTokenToUrl(`/workout/${workout.id}`, token);
-      setTimeout(() => {
+      celebrationTimeoutRef.current = setTimeout(() => {
+        setShowCelebration(false);
         navigate(workoutUrl, { state: { workout } });
-      }, 2000);
+      }, 3000);
     }
+  };
+
+  const handleDismissCelebration = () => {
+    if (!workout || !userId) return;
+    
+    // Clear any pending timeout
+    if (celebrationTimeoutRef.current) {
+      clearTimeout(celebrationTimeoutRef.current);
+      celebrationTimeoutRef.current = null;
+    }
+    
+    // Save and verify in background, then navigate
+    const savePromise = saveSets();
+    
+    const verifyCompletion = async () => {
+      await savePromise;
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      try {
+        const status = await workoutsApi.getCompletionStatus(workout.id, userId);
+        return status;
+      } catch (err) {
+        console.error('Error verifying completion:', err);
+        return null;
+      }
+    };
+    
+    const workoutUrl = playerName 
+      ? addPlayerToUrl(`/workout/${workout.id}`, playerName)
+      : addTokenToUrl(`/workout/${workout.id}`, token);
+    
+    setShowCelebration(false);
+    
+    verifyCompletion().then((status) => {
+      navigate(workoutUrl, { 
+        state: { 
+          workout,
+          completionStatus: status
+        } 
+      });
+    }).catch(() => {
+      navigate(workoutUrl, { state: { workout } });
+    });
   };
 
   const goToPrevious = async () => {
@@ -846,6 +892,15 @@ export function ExerciseDetail({ userId, onBack }: ExerciseDetailProps) {
       {/* Celebration Animation */}
       {showCelebration && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
+          {/* Close button */}
+          <button
+            onClick={handleDismissCelebration}
+            className="absolute top-4 right-4 p-3 rounded-lg bg-zinc-900/90 border border-zinc-700 text-white hover:text-white hover:bg-zinc-800 hover:border-zinc-600 transition-all z-[60]"
+            aria-label="Close"
+          >
+            <X className="w-6 h-6" />
+          </button>
+          
           <div className="text-center">
             <div className="mb-4">
               <div className="w-32 h-32 mx-auto bg-emerald-500 rounded-full flex items-center justify-center animate-scale-in">
