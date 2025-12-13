@@ -122,16 +122,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(404).json({ error: 'Exercise not found' });
       }
 
-      // Delete existing sets for this exercise/athlete/workout combination
-      await supabase
-        .from('exercise_sets')
-        .delete()
-        .eq('block_exercise_id', exerciseId)
-        .eq('workout_id', workoutId)
-        .eq('athlete_id', athleteId);
-
-      // Insert new sets
-      const setsToInsert = sets.map((set: any) => ({
+      // Use upsert instead of delete + insert to avoid race conditions and duplicate key errors
+      const setsToUpsert = sets.map((set: any) => ({
         id: `${exerciseId}_${athleteId}_${set.set}`,
         block_exercise_id: exerciseId,
         workout_id: workoutId,
@@ -143,14 +135,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         completed_at: set.completed ? new Date().toISOString() : null,
       }));
 
-      const { error: insertError } = await supabase
+      // Upsert all sets at once (handles both new and existing sets)
+      const { error: upsertError } = await supabase
         .from('exercise_sets')
-        .insert(setsToInsert);
+        .upsert(setsToUpsert, {
+          onConflict: 'id'
+        });
 
-      if (insertError) throw insertError;
+      if (upsertError) throw upsertError;
 
-      // Check and mark workout as complete after saving sets
-      await checkAndMarkWorkoutComplete(supabase, workoutId, athleteId);
+      // Check and mark workout as complete after saving sets (non-blocking)
+      // Don't await - let it run in background to avoid slowing down the response
+      checkAndMarkWorkoutComplete(supabase, workoutId, athleteId).catch(err => {
+        console.error('Background completion check failed:', err);
+      });
 
       res.json({ success: true, message: 'Sets saved successfully' });
     } else if (req.method === 'GET') {
