@@ -528,6 +528,35 @@ router.get('/:workoutId/exercises/:exerciseId/sets', (req, res) => {
   }
 });
 
+// GET /api/workouts/completions?athleteId=xxx - Get all completed workouts for an athlete
+// IMPORTANT: This must come BEFORE /:workoutId/completion to avoid route conflicts
+router.get('/completions', (req, res) => {
+  try {
+    const { athleteId } = req.query;
+    
+    if (!athleteId) {
+      return res.status(400).json({ error: 'athleteId query parameter is required' });
+    }
+    
+    // Get all completed workouts for this athlete
+    const completions = db.prepare(`
+      SELECT workout_id FROM workout_completions
+      WHERE athlete_id = ?
+    `).all(athleteId) as Array<{ workout_id: string }>;
+    
+    // Convert to a simple object: { workoutId: true }
+    const completionMap: Record<string, boolean> = {};
+    completions.forEach((completion) => {
+      completionMap[completion.workout_id] = true;
+    });
+    
+    res.json(completionMap);
+  } catch (error: any) {
+    console.error('Error fetching workout completions:', error);
+    res.status(500).json({ error: 'Failed to fetch workout completions' });
+  }
+});
+
 // GET /api/workouts/:workoutId/completion - Get completion status for all exercises
 router.get('/:workoutId/completion', (req, res) => {
   try {
@@ -583,34 +612,6 @@ router.get('/:workoutId/completion', (req, res) => {
   } catch (error: any) {
     console.error('Error fetching completion status:', error);
     res.status(500).json({ error: 'Failed to fetch completion status' });
-  }
-});
-
-// GET /api/workouts/completions?athleteId=xxx - Get all completed workouts for an athlete
-router.get('/completions', (req, res) => {
-  try {
-    const { athleteId } = req.query;
-    
-    if (!athleteId) {
-      return res.status(400).json({ error: 'athleteId query parameter is required' });
-    }
-    
-    // Get all completed workouts for this athlete
-    const completions = db.prepare(`
-      SELECT workout_id FROM workout_completions
-      WHERE athlete_id = ?
-    `).all(athleteId) as Array<{ workout_id: string }>;
-    
-    // Convert to a simple object: { workoutId: true }
-    const completionMap: Record<string, boolean> = {};
-    completions.forEach((completion) => {
-      completionMap[completion.workout_id] = true;
-    });
-    
-    res.json(completionMap);
-  } catch (error: any) {
-    console.error('Error fetching workout completions:', error);
-    res.status(500).json({ error: 'Failed to fetch workout completions' });
   }
 });
 
