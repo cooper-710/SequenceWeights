@@ -122,8 +122,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(404).json({ error: 'Exercise not found' });
       }
 
-      // First, delete all existing sets for this exercise/athlete/workout combination
+      // First, delete ALL existing sets for this exercise/athlete/workout combination
       // This ensures that deleted sets are actually removed from the database
+      // We delete all first, then insert only what we want - this avoids duplicate key errors
       const { error: deleteError } = await supabase
         .from('exercise_sets')
         .delete()
@@ -131,27 +132,34 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .eq('workout_id', workoutId)
         .eq('athlete_id', athleteId);
 
-      if (deleteError) throw deleteError;
+      if (deleteError) {
+        console.error('Error deleting existing sets:', deleteError);
+        throw deleteError;
+      }
 
-      // Then insert the new sets
-      const setsToInsert = sets.map((set: any) => ({
-        id: `${exerciseId}_${athleteId}_${set.set}`,
-        block_exercise_id: exerciseId,
-        workout_id: workoutId,
-        athlete_id: athleteId,
-        set_number: set.set,
-        weight: set.weight || null,
-        reps: set.reps || null,
-        completed: set.completed ? 1 : 0,
-        completed_at: set.completed ? new Date().toISOString() : null,
-      }));
+      // Then insert the new sets (only if there are any)
+      if (sets.length > 0) {
+        const setsToInsert = sets.map((set: any) => ({
+          id: `${exerciseId}_${athleteId}_${set.set}`,
+          block_exercise_id: exerciseId,
+          workout_id: workoutId,
+          athlete_id: athleteId,
+          set_number: set.set,
+          weight: set.weight || null,
+          reps: set.reps || null,
+          completed: set.completed ? 1 : 0,
+          completed_at: set.completed ? new Date().toISOString() : null,
+        }));
 
-      // Insert all sets at once
-      const { error: insertError } = await supabase
-        .from('exercise_sets')
-        .insert(setsToInsert);
+        const { error: insertError } = await supabase
+          .from('exercise_sets')
+          .insert(setsToInsert);
 
-      if (insertError) throw insertError;
+        if (insertError) {
+          console.error('Error inserting sets:', insertError);
+          throw insertError;
+        }
+      }
 
       // Check and mark workout as complete after saving sets (non-blocking)
       // Don't await - let it run in background to avoid slowing down the response
