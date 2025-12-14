@@ -309,12 +309,12 @@ export function ExerciseDetail({ userId, onBack }: ExerciseDetailProps) {
     // Show celebration immediately - optimistic UI
     setShowCelebration(true);
     
-    // Save and verify in background
+    // Save and verify in background (no automatic navigation)
     try {
       // Save current exercise sets (don't wait for it to block the UI)
       const savePromise = saveSets();
       
-      // Verify completion status in parallel
+      // Verify completion status in background
       const verifyCompletion = async () => {
         // Wait for save to complete and backend to mark workout as complete
         await savePromise;
@@ -331,51 +331,15 @@ export function ExerciseDetail({ userId, onBack }: ExerciseDetailProps) {
         if (!allCompleted) {
           await new Promise(resolve => setTimeout(resolve, 300));
           status = await workoutsApi.getCompletionStatus(workout.id, userId);
-          allCompleted = Object.values(status).every(
-            (exerciseStatus) => exerciseStatus.status === 'completed'
-          ) && Object.keys(status).length === totalExercises;
         }
-        
-        return { status, allCompleted };
       };
       
-      const workoutUrl = playerName 
-        ? addPlayerToUrl(`/workout/${workout.id}`, playerName)
-        : addTokenToUrl(`/workout/${workout.id}`, token);
-      
-      const navigateAway = (status?: any) => {
-        setShowCelebration(false);
-        navigate(workoutUrl, { 
-          state: { 
-            workout,
-            completionStatus: status
-          } 
-        });
-      };
-      
-      // Verify in background, but navigate after animation regardless
-      verifyCompletion().then(({ status, allCompleted }) => {
-        // Navigate after 3 seconds
-        celebrationTimeoutRef.current = setTimeout(() => {
-          navigateAway(status);
-        }, 3000);
-      }).catch((err) => {
+      // Verify in background - no navigation
+      verifyCompletion().catch((err) => {
         console.error('Error verifying completion:', err);
-        // Still navigate even if verification fails
-        celebrationTimeoutRef.current = setTimeout(() => {
-          navigateAway();
-        }, 3000);
       });
     } catch (err) {
       console.error('Error completing workout:', err);
-      // Still navigate even if there's an error
-      const workoutUrl = playerName 
-        ? addPlayerToUrl(`/workout/${workout.id}`, playerName)
-        : addTokenToUrl(`/workout/${workout.id}`, token);
-      celebrationTimeoutRef.current = setTimeout(() => {
-        setShowCelebration(false);
-        navigate(workoutUrl, { state: { workout } });
-      }, 3000);
     }
   };
 
@@ -388,17 +352,17 @@ export function ExerciseDetail({ userId, onBack }: ExerciseDetailProps) {
       celebrationTimeoutRef.current = null;
     }
     
-    // Save and verify in background, then navigate
-    const savePromise = saveSets();
+    // Just dismiss the celebration - stay on current page
+    setShowCelebration(false);
     
+    // Verify completion in background (no navigation)
+    const savePromise = saveSets();
     const verifyCompletion = async () => {
       await savePromise;
-      // Wait for backend to mark workout as complete
       await new Promise(resolve => setTimeout(resolve, 500));
       
       try {
         let status = await workoutsApi.getCompletionStatus(workout.id, userId);
-        // Retry once if workout not yet marked complete
         const totalExercises = workout.blocks.reduce((total, block) => total + block.exercises.length, 0);
         const allCompleted = Object.values(status).every(
           (exerciseStatus) => exerciseStatus.status === 'completed'
@@ -408,28 +372,13 @@ export function ExerciseDetail({ userId, onBack }: ExerciseDetailProps) {
           await new Promise(resolve => setTimeout(resolve, 300));
           status = await workoutsApi.getCompletionStatus(workout.id, userId);
         }
-        return status;
       } catch (err) {
         console.error('Error verifying completion:', err);
-        return null;
       }
     };
     
-    const workoutUrl = playerName 
-      ? addPlayerToUrl(`/workout/${workout.id}`, playerName)
-      : addTokenToUrl(`/workout/${workout.id}`, token);
-    
-    setShowCelebration(false);
-    
-    verifyCompletion().then((status) => {
-      navigate(workoutUrl, { 
-        state: { 
-          workout,
-          completionStatus: status
-        } 
-      });
-    }).catch(() => {
-      navigate(workoutUrl, { state: { workout } });
+    verifyCompletion().catch(() => {
+      // Ignore errors - just verifying in background
     });
   };
 
