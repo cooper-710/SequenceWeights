@@ -316,16 +316,25 @@ export function ExerciseDetail({ userId, onBack }: ExerciseDetailProps) {
       
       // Verify completion status in parallel
       const verifyCompletion = async () => {
-        // Wait a small bit for save to complete
+        // Wait for save to complete and backend to mark workout as complete
         await savePromise;
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise(resolve => setTimeout(resolve, 500));
         
-        // Check completion status (single check, no retries)
-        const status = await workoutsApi.getCompletionStatus(workout.id, userId);
+        // Check completion status with retry to ensure backend has processed
+        let status = await workoutsApi.getCompletionStatus(workout.id, userId);
         const totalExercises = workout.blocks.reduce((total, block) => total + block.exercises.length, 0);
-        const allCompleted = Object.values(status).every(
+        let allCompleted = Object.values(status).every(
           (exerciseStatus) => exerciseStatus.status === 'completed'
         ) && Object.keys(status).length === totalExercises;
+        
+        // If not completed yet, wait a bit more and retry once
+        if (!allCompleted) {
+          await new Promise(resolve => setTimeout(resolve, 300));
+          status = await workoutsApi.getCompletionStatus(workout.id, userId);
+          allCompleted = Object.values(status).every(
+            (exerciseStatus) => exerciseStatus.status === 'completed'
+          ) && Object.keys(status).length === totalExercises;
+        }
         
         return { status, allCompleted };
       };
@@ -384,10 +393,21 @@ export function ExerciseDetail({ userId, onBack }: ExerciseDetailProps) {
     
     const verifyCompletion = async () => {
       await savePromise;
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // Wait for backend to mark workout as complete
+      await new Promise(resolve => setTimeout(resolve, 500));
       
       try {
-        const status = await workoutsApi.getCompletionStatus(workout.id, userId);
+        let status = await workoutsApi.getCompletionStatus(workout.id, userId);
+        // Retry once if workout not yet marked complete
+        const totalExercises = workout.blocks.reduce((total, block) => total + block.exercises.length, 0);
+        const allCompleted = Object.values(status).every(
+          (exerciseStatus) => exerciseStatus.status === 'completed'
+        ) && Object.keys(status).length === totalExercises;
+        
+        if (!allCompleted) {
+          await new Promise(resolve => setTimeout(resolve, 300));
+          status = await workoutsApi.getCompletionStatus(workout.id, userId);
+        }
         return status;
       } catch (err) {
         console.error('Error verifying completion:', err);
