@@ -47,15 +47,22 @@ function checkAndMarkWorkoutComplete(workoutId: string, athleteId: string) {
       
       exercises.forEach((exercise: any) => {
         totalExercises++;
-        // Get completion data for this exercise
+        // Get total number of sets from exercise_sets table (actual sets, not exercise.sets)
+        const totalSetsResult = db.prepare(`
+          SELECT COUNT(*) as count FROM exercise_sets
+          WHERE block_exercise_id = ? AND workout_id = ? AND athlete_id = ?
+        `).get(exercise.id, workoutId, athleteId) as { count: number };
+        
+        // Get completed sets count
         const completedSets = db.prepare(`
           SELECT COUNT(*) as count FROM exercise_sets
           WHERE block_exercise_id = ? AND workout_id = ? AND athlete_id = ? AND completed = 1
         `).get(exercise.id, workoutId, athleteId) as { count: number };
         
-        const totalSets = exercise.sets;
+        const totalSets = totalSetsResult.count;
         const completedCount = completedSets.count;
         
+        // Exercise is complete if all actual sets are completed and there's at least one set
         if (completedCount === totalSets && totalSets > 0) {
           completedExercises++;
         }
@@ -591,13 +598,19 @@ router.get('/:workoutId/completion', (req, res) => {
       `).all(block.id);
       
       exercises.forEach((exercise: any) => {
+        // Get total number of sets from exercise_sets table (actual sets, not exercise.sets)
+        const totalSetsResult = db.prepare(`
+          SELECT COUNT(*) as count FROM exercise_sets
+          WHERE block_exercise_id = ? AND workout_id = ? AND athlete_id = ?
+        `).get(exercise.id, workoutId, athleteId) as { count: number };
+        
         // Get completion data for this exercise
         const completedSets = db.prepare(`
           SELECT COUNT(*) as count FROM exercise_sets
           WHERE block_exercise_id = ? AND workout_id = ? AND athlete_id = ? AND completed = 1
         `).get(exercise.id, workoutId, athleteId) as { count: number };
         
-        const totalSets = exercise.sets;
+        const totalSets = totalSetsResult.count;
         const completedCount = completedSets.count;
         
         let status: 'completed' | 'in-progress' | 'not-started' = 'not-started';

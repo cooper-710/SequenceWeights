@@ -67,11 +67,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         if (countError) throw countError;
 
-        // Calculate actual total sets: max of template sets and highest saved set number
-        const maxSavedSetNumber = allSetsData && allSetsData.length > 0
-          ? Math.max(...allSetsData.map((s: any) => s.set_number))
-          : 0;
-        const totalSets = Math.max(exercise.sets, maxSavedSetNumber);
+        // Use actual count of sets from database, not exercise.sets or maxSavedSetNumber
+        const totalSets = allSetsData?.length || 0;
         const completedCount = completedSetsData?.length || 0;
 
         // Check if reps vary across sets

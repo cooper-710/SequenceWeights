@@ -29,6 +29,16 @@ async function checkAndMarkWorkoutComplete(supabase: any, workoutId: string, ath
       for (const exercise of exercises || []) {
         totalExercises++;
         
+        // Get total number of sets from exercise_sets table (actual sets, not exercise.sets)
+        const { data: totalSetsData, error: totalSetsError } = await supabase
+          .from('exercise_sets')
+          .select('*', { count: 'exact', head: false })
+          .eq('block_exercise_id', exercise.id)
+          .eq('workout_id', workoutId)
+          .eq('athlete_id', athleteId);
+
+        if (totalSetsError) throw totalSetsError;
+        
         // Get completion data for this exercise
         const { data: completedSetsData, error: countError } = await supabase
           .from('exercise_sets')
@@ -40,7 +50,7 @@ async function checkAndMarkWorkoutComplete(supabase: any, workoutId: string, ath
 
         if (countError) throw countError;
 
-        const totalSets = exercise.sets;
+        const totalSets = totalSetsData?.length || 0;
         const completedCount = completedSetsData?.length || 0;
 
         if (completedCount === totalSets && totalSets > 0) {
