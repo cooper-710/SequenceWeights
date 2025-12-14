@@ -113,20 +113,15 @@ export function ExerciseDetail({ userId, onBack }: ExerciseDetailProps) {
               );
               
               if (savedSets && savedSets.length > 0) {
-                // Calculate total sets: use max of template sets and highest saved set number
-                // This preserves sets that were added beyond the template count
-                const maxSavedSetNumber = Math.max(...savedSets.map((s: any) => s.set));
-                const totalSets = Math.max(foundExercise.sets, maxSavedSetNumber);
-                
-                const setsToShow = Array.from({ length: totalSets }, (_, i) => {
-                  const saved = savedSets.find((s: any) => s.set === i + 1);
-                  return saved || {
-                    set: i + 1,
-                    weight: foundExercise.weight || '',
-                    reps: foundExercise.reps || '',
-                    completed: false,
-                  };
-                });
+                // Use the actual saved sets - don't enforce template minimum
+                // This allows users to have fewer sets than the template prescribes
+                // But still preserves sets that were added beyond the template count
+                const setsToShow = savedSets.map((s: any) => ({
+                  set: s.set,
+                  weight: s.weight || '',
+                  reps: s.reps || '',
+                  completed: s.completed || false,
+                }));
                 setSets(setsToShow);
                 return;
               }
@@ -891,28 +886,31 @@ export function ExerciseDetail({ userId, onBack }: ExerciseDetailProps) {
 
       {/* Celebration Animation */}
       {showCelebration && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black/80 z-50">
           {/* Close button */}
           <button
             onClick={handleDismissCelebration}
-            className="fixed top-4 right-4 p-3 rounded-lg bg-zinc-900/90 border border-zinc-700 text-white hover:text-white hover:bg-zinc-800 hover:border-zinc-600 transition-all z-[60]"
+            className="absolute top-4 right-4 p-3 rounded-lg bg-zinc-900/90 border border-zinc-700 text-white hover:text-white hover:bg-zinc-800 hover:border-zinc-600 transition-all z-[60]"
             aria-label="Close"
           >
             <X className="w-6 h-6" />
           </button>
           
-          <div className="text-center">
-            <div className="mb-4">
-              <div className="w-32 h-32 mx-auto bg-emerald-500 rounded-full flex items-center justify-center animate-scale-in">
-                <Check className="w-20 h-20 text-white" />
+          {/* Centered celebration content */}
+          <div className="flex items-center justify-center h-full">
+            <div className="text-center">
+              <div className="mb-4">
+                <div className="w-32 h-32 mx-auto bg-emerald-500 rounded-full flex items-center justify-center animate-scale-in">
+                  <Check className="w-20 h-20 text-white" />
+                </div>
               </div>
+              <h2 className="text-5xl font-bold text-emerald-400 mb-2 animate-fade-in">
+                Workout Complete!
+              </h2>
+              <p className="text-2xl text-white animate-fade-in-delay">
+                Great job! 🎉
+              </p>
             </div>
-            <h2 className="text-5xl font-bold text-emerald-400 mb-2 animate-fade-in">
-              Workout Complete!
-            </h2>
-            <p className="text-2xl text-white animate-fade-in-delay">
-              Great job! 🎉
-            </p>
           </div>
         </div>
       )}
