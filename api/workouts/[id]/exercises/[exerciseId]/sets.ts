@@ -132,24 +132,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(404).json({ error: 'Exercise not found' });
       }
 
-      // First, delete ALL existing sets for this exercise/athlete/workout combination
-      // This ensures that deleted sets are actually removed from the database
-      // We delete all first, then insert only what we want - this avoids duplicate key errors
-      const { error: deleteError } = await supabase
-        .from('exercise_sets')
-        .delete()
-        .eq('block_exercise_id', exerciseId)
-        .eq('workout_id', workoutId)
-        .eq('athlete_id', athleteId);
-
-      if (deleteError) {
-        console.error('Error deleting existing sets:', deleteError);
-        throw deleteError;
-      }
-
-      // Then insert the new sets (only if there are any)
+      // Use upsert to handle concurrent requests gracefully
+      // This prevents duplicate key errors when multiple saves happen simultaneously
       if (sets.length > 0) {
-        const setsToInsert = sets.map((set: any) => ({
+        const setsToUpsert = sets.map((set: any) => ({
           id: `${exerciseId}_${athleteId}_${set.set}`,
           block_exercise_id: exerciseId,
           workout_id: workoutId,
@@ -161,13 +147,61 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           completed_at: set.completed ? new Date().toISOString() : null,
         }));
 
-        const { error: insertError } = await supabase
+        // Upsert all sets - this will insert new ones or update existing ones
+        // This prevents duplicate key errors from concurrent requests
+        const { error: upsertError } = await supabase
           .from('exercise_sets')
-          .insert(setsToInsert);
+          .upsert(setsToUpsert, {
+            onConflict: 'id'
+          });
 
-        if (insertError) {
-          console.error('Error inserting sets:', insertError);
-          throw insertError;
+        if (upsertError) {
+          console.error('Error upserting sets:', upsertError);
+          throw upsertError;
+        }
+
+        // Delete any sets that exist in the database but are not in the incoming array
+        // This handles the case where a set was deleted from the UI
+        const incomingSetNumbers = sets.map((s: any) => s.set);
+        
+        // Get all existing sets to find ones to delete
+        const { data: existingSets, error: fetchError } = await supabase
+          .from('exercise_sets')
+          .select('id, set_number')
+          .eq('block_exercise_id', exerciseId)
+          .eq('workout_id', workoutId)
+          .eq('athlete_id', athleteId);
+
+        if (!fetchError && existingSets) {
+          const setsToDelete = existingSets
+            .filter((s: any) => !incomingSetNumbers.includes(s.set_number))
+            .map((s: any) => s.id);
+
+          if (setsToDelete.length > 0) {
+            // Delete sets that are no longer in the incoming array
+            const { error: deleteError } = await supabase
+              .from('exercise_sets')
+              .delete()
+              .in('id', setsToDelete);
+
+            if (deleteError) {
+              console.error('Error deleting removed sets:', deleteError);
+              // Don't throw - this is cleanup, not critical
+            }
+          }
+        }
+      } else {
+        // If no sets in incoming array, delete all existing sets
+        const { error: deleteError } = await supabase
+          .from('exercise_sets')
+          .delete()
+          .eq('block_exercise_id', exerciseId)
+          .eq('workout_id', workoutId)
+          .eq('athlete_id', athleteId);
+
+        if (deleteError) {
+          console.error('Error deleting all sets:', deleteError);
+          // Don't throw - this is cleanup
         }
       }
 
