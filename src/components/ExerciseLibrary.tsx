@@ -2,8 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Plus, Search, Dumbbell, Video, Edit, Trash2, Upload, X } from 'lucide-react';
 import { exercisesApi, Exercise } from '../utils/api';
 import { LoadingScreen } from './LoadingScreen';
-
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+import { supabase } from '../lib/supabase';
 
 export function ExerciseLibrary() {
   const [exercises, setExercises] = useState<Exercise[]>([]);
@@ -176,57 +175,62 @@ export function ExerciseLibrary() {
 
     try {
       setUploadingVideo(true);
-      setUploadProgress(0);
+      // Start with a small non-zero progress so the UI shows activity
+      setUploadProgress(10);
 
-      const formData = new FormData();
-      formData.append('video', selectedVideoFile);
+      // Ensure Supabase is configured
+      if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) {
+        alert('Video upload is not configured. Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your environment.');
+        setUploadingVideo(false);
+        setUploadProgress(0);
+        return;
+      }
 
-      const xhr = new XMLHttpRequest();
+      // Generate a unique file path for this upload
+      const originalName = selectedVideoFile.name;
+      const ext = '.' + (originalName.split('.').pop() || 'mp4');
+      const baseName = originalName.replace(/\.[^/.]+$/, '');
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+      const filePath = `${baseName}-${uniqueSuffix}${ext}`;
 
-      // Track upload progress
-      xhr.upload.addEventListener('progress', (e) => {
-        if (e.lengthComputable) {
-          const percentComplete = (e.loaded / e.total) * 100;
-          setUploadProgress(percentComplete);
-        }
-      });
+      const { data, error } = await supabase.storage
+        .from('videos')
+        .upload(filePath, selectedVideoFile, {
+          cacheControl: '3600',
+          upsert: false,
+          contentType: selectedVideoFile.type || 'video/mp4',
+        });
 
-      // Handle completion
-      xhr.addEventListener('load', () => {
-        if (xhr.status === 200) {
-          const response = JSON.parse(xhr.responseText);
-          // Construct full URL (response.videoUrl is like "/videos/filename.mp4")
-          const fullVideoUrl = `${API_BASE_URL}${response.videoUrl}`;
-          setNewExercise({ ...newExercise, videoUrl: fullVideoUrl });
-          setSelectedVideoFile(null);
-          if (videoPreview) {
-            URL.revokeObjectURL(videoPreview);
-            setVideoPreview(null);
-          }
-          setUploadProgress(0);
-          setUploadingVideo(false);
-          
-          // Reset file input
-          if (fileInputRef.current) {
-            fileInputRef.current.value = '';
-          }
-        } else {
-          const error = JSON.parse(xhr.responseText);
-          alert(error.error || 'Failed to upload video');
-          setUploadingVideo(false);
-          setUploadProgress(0);
-        }
-      });
-
-      // Handle errors
-      xhr.addEventListener('error', () => {
+      if (error || !data) {
+        console.error('Supabase video upload error:', error);
         alert('Failed to upload video. Please try again.');
         setUploadingVideo(false);
         setUploadProgress(0);
-      });
+        return;
+      }
 
-      xhr.open('POST', `${API_BASE_URL}/upload/video`);
-      xhr.send(formData);
+      // Bump progress near completion while we fetch the public URL
+      setUploadProgress(90);
+
+      const { data: publicData } = supabase.storage
+        .from('videos')
+        .getPublicUrl(data.path);
+
+      const fullVideoUrl = publicData.publicUrl;
+
+      setNewExercise({ ...newExercise, videoUrl: fullVideoUrl });
+      setSelectedVideoFile(null);
+      if (videoPreview) {
+        URL.revokeObjectURL(videoPreview);
+        setVideoPreview(null);
+      }
+      setUploadProgress(100);
+      setUploadingVideo(false);
+      
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     } catch (err) {
       console.error('Failed to upload video:', err);
       alert('Failed to upload video. Please try again.');
