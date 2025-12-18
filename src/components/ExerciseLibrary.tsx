@@ -17,6 +17,7 @@ export function ExerciseLibrary() {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [selectedVideoFile, setSelectedVideoFile] = useState<File | null>(null);
   const [videoPreview, setVideoPreview] = useState<string | null>(null);
+  const [isDragActive, setIsDragActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Load exercises from API on mount
@@ -105,40 +106,69 @@ export function ExerciseLibrary() {
     }
   };
 
+  const handleVideoFile = (file: File) => {
+    // Validate file type
+    const validTypes = [
+      'video/mp4',
+      'video/quicktime', // .mov files
+      'video/x-msvideo', // .avi
+      'video/x-matroska', // .mkv
+      'video/webm',
+      'video/3gpp', // .3gp
+      'video/x-m4v', // .m4v
+    ];
+
+    const validExtensions = ['.mp4', '.mov', '.avi', '.mkv', '.webm', '.3gp', '.m4v'];
+    const fileExt = '.' + file.name.split('.').pop()?.toLowerCase();
+
+    if (!validTypes.includes(file.type) && !validExtensions.includes(fileExt)) {
+      alert('Invalid file type. Please select a video file (mp4, mov, avi, mkv, webm, 3gp, m4v).');
+      return;
+    }
+
+    // Validate file size (500MB max)
+    if (file.size > 500 * 1024 * 1024) {
+      alert('File size is too large. Maximum file size is 500MB.');
+      return;
+    }
+
+    setSelectedVideoFile(file);
+
+    // Create preview URL
+    const previewUrl = URL.createObjectURL(file);
+    setVideoPreview(previewUrl);
+  };
+
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      // Validate file type
-      const validTypes = [
-        'video/mp4',
-        'video/quicktime', // .mov files
-        'video/x-msvideo', // .avi
-        'video/x-matroska', // .mkv
-        'video/webm',
-        'video/3gpp', // .3gp
-        'video/x-m4v', // .m4v
-      ];
-      
-      const validExtensions = ['.mp4', '.mov', '.avi', '.mkv', '.webm', '.3gp', '.m4v'];
-      const fileExt = '.' + file.name.split('.').pop()?.toLowerCase();
-      
-      if (!validTypes.includes(file.type) && !validExtensions.includes(fileExt)) {
-        alert('Invalid file type. Please select a video file (mp4, mov, avi, mkv, webm, 3gp, m4v).');
-        return;
-      }
-
-      // Validate file size (500MB max)
-      if (file.size > 500 * 1024 * 1024) {
-        alert('File size is too large. Maximum file size is 500MB.');
-        return;
-      }
-
-      setSelectedVideoFile(file);
-      
-      // Create preview URL
-      const previewUrl = URL.createObjectURL(file);
-      setVideoPreview(previewUrl);
+      handleVideoFile(file);
     }
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragActive(false);
+
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      handleVideoFile(file);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!isDragActive) {
+      setIsDragActive(true);
+    }
+  };
+
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragActive(false);
   };
 
   const handleUploadVideo = async () => {
@@ -351,15 +381,23 @@ export function ExerciseLibrary() {
                 <label className="block text-gray-400 mb-2">Video</label>
                 <div className="space-y-3">
                   {/* File Upload */}
-                  <div className="border-2 border-dashed border-zinc-700 rounded-lg p-4 hover:border-orange-500/50 transition-colors">
+                  <div
+                    className={`border-2 border-dashed rounded-lg p-4 hover:border-orange-500/50 transition-colors ${
+                      isDragActive ? 'border-orange-500 bg-orange-500/10' : 'border-zinc-700'
+                    }`}
+                    onDragOver={handleDragOver}
+                    onDragEnter={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
+                  >
                     <input
                       ref={fileInputRef}
                       type="file"
-                      accept="video/mp4,video/quicktime,video/x-msvideo,video/x-matroska,video/webm,video/3gpp,video/x-m4v,.mp4,.mov,.avi,.mkv,.webm,.3gp,.m4v"
+                      accept="video/*"
                       onChange={handleFileSelect}
-                      className="hidden"
                       id="video-upload"
                       disabled={uploadingVideo}
+                      style={{ display: 'none' }}
                     />
                     <label
                       htmlFor="video-upload"
@@ -423,7 +461,7 @@ export function ExerciseLibrary() {
                         <div className="text-center">
                           <Upload className="w-12 h-12 text-gray-400 mx-auto mb-2" />
                           <p className="text-sm text-gray-400 mb-1">
-                            Click to select a video file
+                            Click or drag a video file here
                           </p>
                           <p className="text-xs text-gray-500">
                             MP4, MOV, AVI, MKV, WebM, 3GP, M4V (max 500MB)
